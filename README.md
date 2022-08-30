@@ -8,6 +8,7 @@
 ## Student name & ID
 - Youngjun Cho (1075878)
 - Xavier Travers (1178369)
+- Glendon Yong Zhen Goh (1145454)
 
 
 Groups should generate their own suitable `README.md`.
