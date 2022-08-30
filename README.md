@@ -9,6 +9,7 @@
 - Youngjun Cho (1075878)
 - Xavier Travers (1178369)
 - Glendon Yong Zhen Goh (1145454)
+- Ming Hui Tan (1087948)
 
 
 Groups should generate their own suitable `README.md`.
