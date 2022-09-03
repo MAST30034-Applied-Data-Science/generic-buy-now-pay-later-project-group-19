@@ -17,8 +17,6 @@ from nltk.stem import WordNetLemmatizer
 import nltk 
 nltk.download('words')
 from autocorrect import Speller
-import logging
-
 
 # preprocess the data, with the following pipeline
 from nltk.metrics.distance import jaccard_distance
@@ -97,6 +95,16 @@ def extract_tags(arr, category="tags"):
 
 
 if __name__ == "__main__":
+    import os
+    import sys
+    import inspect
+    currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    parentdir = os.path.dirname(currentdir)
+    sys.path.insert(0, parentdir) 
+    import log
+
+    logger = log.logger
+
     spark = (
         SparkSession.builder.appName("MAST30034 Project 2")
         .config("spark.sql.repl.eagerEval.enabled", True)
@@ -106,5 +114,24 @@ if __name__ == "__main__":
         .getOrCreate()
     )
 
-    sdf = spark.read.parquet("../data/tables/tbl_merchants.parquet")
+    sdf = spark.read.parquet("data/tables/tbl_merchants.parquet")
     df = sdf.toPandas()
+
+    logger.info("parquet to pandas succeed")
+
+    df["tag"] = df.apply(lambda row: extract_tags(row.tags, "tags"), axis=1)
+    df["revenue_lvl"] = df.apply(
+        lambda row: extract_tags(row.tags, "revenue_level"), axis=1
+    )
+    df["take_rate"] = df.apply(lambda row: extract_tags(row.tags, "take_rate"), axis=1)
+
+    tag_col = df["tag"].copy()
+
+
+    preprocessor = Preprocessor()
+    for i in range(tag_col.size):
+        tag_col[i] = preprocessor.preprocess(tag_col[i])
+    
+    logger.info("preprocess complete")
+
+    tag_col.to_csv("data/curated/tag_col_preprocessed.csv")

@@ -1,0 +1,3 @@
+16:12:45,722 root INFO Start Logging
+16:12:48,278 logger INFO parquet to pandas succeed
+16:13:19,411 logger INFO preprocess complete
