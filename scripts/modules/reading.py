@@ -2,7 +2,7 @@
 '''
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql import functions as F
+from pyspark.sql.functions import *
 
 def read_consumers(spark: SparkSession, data_path: str = '../data/tables',
         filename: str = 'tbl_consumer.csv') -> DataFrame:

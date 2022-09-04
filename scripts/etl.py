@@ -18,6 +18,7 @@ from pyspark.sql import SparkSession
 # Our Modules
 import modules.logging as logging
 import modules.reading as READ
+import modules.util as util
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
@@ -77,9 +78,14 @@ if SPARK:
 # %% Read in the datasets
 ################################################################################
 LOG.print_script_header('reading in the raw datasets')
-test_data = READ.read_consumers(spark, data_path=args.input)
-print(test_data)
+# test_data = READ.read_consumers(spark, data_path=args.input)
+# print(util.check_missing_values(test_data))
 
-LOG.debug('Just test that the transactions read correctly')
-test_2 = READ.read_transactions(spark, data_path=args.input)
-print(test_2)
+merchant_data = READ.read_merchants(spark, data_path=args.input)
+merchant_data = util.extract_tags(merchant_data)
+print(merchant_data.head(5))
+
+
+
+# LOG.debug('Just test that the transactions read correctly')
+# test_2 = READ.read_transactions(spark, data_path=args.input)
