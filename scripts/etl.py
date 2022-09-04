@@ -76,6 +76,10 @@ if SPARK:
 ################################################################################
 # %% Read in the datasets
 ################################################################################
-LOG.print_script_header('readiing in the raw datasets')
+LOG.print_script_header('reading in the raw datasets')
 test_data = READ.read_consumers(spark, data_path=args.input)
 print(test_data)
+
+LOG.debug('Just test that the transactions read correctly')
+test_2 = READ.read_transactions(spark, data_path=args.input)
+print(test_2)
