@@ -1,6 +1,5 @@
-script_description = """ This script file should be used as a template for any script files you find yourself using.
-Use this comment to describe what the script does.
-Work through the TODOs for each script you make and it should be perfect.
+script_description = """ Runs the whole ETL pipeline from one script file.
+TODO: Add documentation of the steps here.
 """
 
 # Python Libraries
@@ -73,3 +72,10 @@ if SPARK:
         .config("spark.driver.memory", "4g")
         .getOrCreate()
     )
+
+################################################################################
+# %% Read in the datasets
+################################################################################
+LOG.print_script_header('readiing in the raw datasets')
+test_data = READ.read_consumers(spark, data_path=args.input)
+print(test_data)
