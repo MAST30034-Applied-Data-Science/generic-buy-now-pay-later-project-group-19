@@ -20,9 +20,9 @@ class Logger:
         Args:
             header (str): Header title
         """
-        print('\n' + 100 * '=')
+        print('\n' + 50 * '=')
         print(f'=== {header.upper()}')
-        print(100 * '=')
+        print(50 * '=')
 
 
     def debug(self, msg: str, type: str = 'DEBUG'):
