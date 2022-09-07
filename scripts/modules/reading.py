@@ -1,6 +1,7 @@
 ''' Provides functions to read the datasets.
 '''
 
+from collections import defaultdict
 import os
 import re
 from datetime import datetime
@@ -9,10 +10,12 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
 DEFAULT_DATA_PATH = '../data/tables'
-RE_CONSUMERS = r'tbl_consumer.csv'
-RE_CONSUMER_USER_MAPPINGS = r'consumer_user_details.parquet'
+
+# regex queries for finding the relevant datasets
+RE_CONSUMERS = r'tbl_consumer.*\.csv'
+RE_CONSUMER_USER_MAPPINGS = r'consumer_user_details.*\.parquet'
 RE_TRANSACTIONS = r'transactions_\d+_\d+_snapshot'
-RE_MERCHANTS = r'tbl_merchants.parquet'
+RE_MERCHANTS = r'tbl_merchants.*\.parquet'
 
 def union_or_create(df: DataFrame, new_df: DataFrame) -> DataFrame:
     """ Either return a new dataset or append the new dataset to the old one.
@@ -29,20 +32,38 @@ def union_or_create(df: DataFrame, new_df: DataFrame) -> DataFrame:
     else:
         return df.union(new_df)
 
-def read_data(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH) -> DataFrame:
+    """ Read in all the relevant datasets placed in the one raw/tables folder.
+    This makes assumptions about the naming schemes of each table,
+    as per the `regex` queries defined at the top of this module.
 
-    # consumer_df = None
-    # consumer_user_mappings_df = None
-    # transactions_df = None
-    # merchants_df = None
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        data_path (str, optional): Path where the raw data is stored. 
+            Defaults to `../data/path` (the relative location from script locations).
 
-    read_datasets = {
-        'consumers': None,
-        'consumer_user_mappings': None,
-        'transactions': None,
-        'merchants': None
-    }
+    Returns:
+        `
+    """
 
+def read_data(spark: SparkSession, 
+        data_path: str = DEFAULT_DATA_PATH) -> 'defaultdict[str, DataFrame|None]':
+    """ Read in all the relevant datasets placed in the one raw/tables folder.
+    This makes assumptions about the naming schemes and file formats of each dataset,
+    as per the `regex` queries defined at the top of this module.
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        data_path (str, optional): Path where the raw data is stored. 
+            Defaults to `../data/path` (the relative location from script locations).
+
+    Returns:
+        defaultdict[str, `DataFrame` | None]: Output dictionary of datasets
+    """
+
+    # define the output dictionary
+    read_datasets = defaultdict(lambda: None)
+
+    # define the filename re queries for each relevant dataset
     read_queries = {
         'consumers': RE_CONSUMERS,
         'consumer_user_mappings': RE_CONSUMER_USER_MAPPINGS,
@@ -50,6 +71,7 @@ def read_data(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH) -> DataFr
         'merchants': RE_MERCHANTS
     }
 
+    # define the reading functions for each relevant dataset
     read_functions = {
         'consumers': read_consumers,
         'consumer_user_mappings': read_consumer_user_mappings,
@@ -57,46 +79,30 @@ def read_data(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH) -> DataFr
         'merchants': read_merchants
     }
 
+    # iterate through the filenames in the raw data path
     for filename in os.listdir(data_path):
         print(f'READING {data_path}/{filename}')
-        rows_read = 0
+        rows_read = 0 # count the # of rows read for console output
 
+        # iterate through each query and read dataset if it's relevant
         for table_name, query in read_queries.items():
             if re.search(query, filename):
+                # read in the new data
                 new_df = read_functions[table_name](spark, data_path, filename)
+
+                # either append or create it
                 read_datasets[table_name] = union_or_create(
                     read_datasets[table_name], new_df)
+
+                # count # of rows read
                 rows_read = new_df.count()
+
+                # exit early since this dataset was read in correctly
                 break
 
-        # if re.search(RE_CONSUMERS, filename):
-            
-        #     new_consumer_df = read_consumers(spark, data_path, filename)
-        #     consumer_df = union_or_create(consumer_df, new_consumer_df)
-        #     rows_read = new_consumer_df.count()
-        # elif re.search(RE_CONSUMER_USER_MAPPINGS, filename):
-        #     consumer_user_mappings_df = union_or_create(
-        #         consumer_user_mappings_df, 
-        #         read_consumer_user_mappings(
-        #             spark, data_path, filename
-        #         ))
-        # elif re.search(RE_TRANSACTIONS, filename):
-        #     transactions_df = union_or_create(
-        #         transactions_df, 
-        #         read_transactions(spark, data_path, filename))
-        # elif re.search(RE_MERCHANTS, filename):
-        #     merchants_df = union_or_create(
-        #         merchants_df,
-        #         read_merchants(spark, data_path, filename))
         print(f'\tL> {rows_read} ROWS READ')
 
     return read_datasets
-    # return {
-    #     'consumers': consumer_df, 
-    #     'users': consumer_user_mappings_df,
-    #     'transactions': transactions_df,
-    #     'merchants': merchants_df
-    # }
 
 
 def read_consumers(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
@@ -133,35 +139,38 @@ def read_consumer_user_mappings(spark: SparkSession, data_path: str = DEFAULT_DA
     return spark.read.parquet(f'{data_path}/{filename}')
 
 def read_transactions(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
-        folder: str = 'transactions_20210228_20210827_snapshot/') -> DataFrame:
+        folder: str = 'transactions_20210228_20210827_snapshot') -> DataFrame:
     """ Read the transaction dataset.
 
     Args:
         spark (`SparkSession`): Spark session reading the data.
         data_path (str, optional): Path to all data. Defaults to '../data/tables'.
-        filename (str, optional): The filename to read. Defaults to 'transactions_20210228_20210827_snapshot/'.
+        folder (str, optional): The folder to read. Defaults to 'transactions_20210228_20210827_snapshot'.
         
     Returns:
         `DataFrame`: Resulting dataframe.
     """
 
+    # output df
     out_df = None
 
+    # iterate over the subfolders in the transactions folder (ignore non-subfolder paths)
     for subfolder in os.listdir(f'{data_path}/{folder}'):
         if not os.path.isdir(f'{data_path}/{folder}/{subfolder}'): continue
 
+        # read in this subfolder parquet
         temp_df = spark.read.parquet(f'{data_path}/{folder}/{subfolder}')
 
+        # add the order_datetime as a column
         order_datetime = subfolder.split('=')[-1]
         temp_df = temp_df.withColumn('order_datetime', 
-            F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
+            F.lit(order_datetime))
+            # F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
 
+        # add this to the output
         out_df = union_or_create(out_df, temp_df)
 
     return out_df
-
-    # return spark.read.format("parquet").load(f'{data_path}/{filename}')
-    # return spark.read.parquet(f'{data_path}/{filename}')
 
 def read_merchants(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
         filename: str = 'tbl_merchants.parquet') -> DataFrame:

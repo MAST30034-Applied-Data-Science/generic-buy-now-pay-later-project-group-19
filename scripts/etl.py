@@ -101,12 +101,13 @@ if SPARK:
 ################################################################################
 # %% Read in the datasets
 ################################################################################
-
+LOG.print_script_header('reading in the raw datasets')
 data_dict = READ.read_data(spark, args.input)
 
-print(data_dict['consumers'].head(5))
+print(data_dict.keys())
+print(data_dict['transactions'].random(5).show())
+print(data_dict['consumers'].show(5))
 
-# LOG.print_script_header('reading in the raw datasets')
 # test_data = READ.read_consumers(spark, data_path=args.input)
 # print(test_data)
 
