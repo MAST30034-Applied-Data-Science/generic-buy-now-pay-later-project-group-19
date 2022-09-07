@@ -83,6 +83,9 @@ transaction_data = READ.read_transactions(spark, data_path=args.input)
 merchant_data = READ.read_merchants(spark, data_path=args.input)
 user_detail_data = READ.read_consumer_user_mappings(spark, data_path=args.input)
 
+################################################################################
+# %% Preprocessing datasets
+################################################################################
 LOG.print_script_header('processing transaction datasets')
 print("Check missing values in the transaction dataset")
 print(util.check_missing_values(transaction_data))
@@ -93,11 +96,59 @@ print("Check missing values in the merchants dataset")
 print(util.check_missing_values(merchant_data))
 merchant_data = util.extract_tags(merchant_data)
 print("Cleaning merchants tags")
-print("Printing first 5 rows of merchant data")
-print(merchant_data.head(5))
 
 LOG.print_script_header('processing consumer datasets')
 
+################################################################################
+# %% Aggregating datasets
+################################################################################
+LOG.print_script_header('aggregating datasets')
 
-# LOG.debug('Just test that the transactions read correctly')
-# test_2 = READ.read_transactions(spark, data_path=args.input)
+# Generate data which summarizes merchants' sales
+print("Aggregating merchants' sale by merchant abn and date")
+merchant_sales = (transaction_data.groupby('merchant_abn', 'order_datetime')
+                             .agg({'dollar_value':'sum',
+                                   'order_id':'count'})
+                             .withColumnRenamed('sum(dollar_value)', 'sales_revenue')
+                             .withColumnRenamed('count(order_id)', 'no_orders'))
+
+merchant_sales.write.parquet(DEFAULT_CURATED_DATA_PATH + "/merchant_sales.parquet")
+
+# Generate data which summarizes customers spendings
+print("Aggregating customers' purchases by user id and date")
+customer_purchases = (transaction_data.groupby('user_id', 'order_datetime')
+                                 .agg({'dollar_value':'sum',
+                                       'order_id':'count'})
+                                 .withColumnRenamed('sum(dollar_value)', 'dollar_spent')
+                                 .withColumnRenamed('count(order_id)', 'no_orders'))
+
+customer_purchases.write.parquet(DEFAULT_CURATED_DATA_PATH + "/customer_purchase_behaviour.parquet")
+
+
+print("Aggregating customers' purchases by state, postcode and date")
+# Join transaction data with user detail data
+customer_transaction = (transaction_data.join(
+                            user_detail_data, 
+                            transaction_data.user_id == user_detail_data.user_id
+                        ).drop(
+                            user_detail_data.user_id
+                        ))
+
+# Join the data with consumer data
+customer_transaction = (customer_transaction.join(consumer_data, customer_transaction.consumer_id == consumer_data.consumer_id)
+                                            .drop(consumer_data.consumer_id)
+                                            .select(transaction_data['*'], 
+                                                    consumer_data.postcode, 
+                                                    consumer_data.state, 
+                                                    consumer_data.gender))
+
+# Aggregate by state -> postcode -> date
+sales_by_region = (customer_transaction.groupby('state', 'postcode', 'order_datetime')
+                                       .agg({'dollar_value':'sum',
+                                             'order_id':'count'})
+                                       .withColumnRenamed('sum(dollar_value)', 'dollar_spent')
+                                       .withColumnRenamed('count(order_id)', 'no_orders'))
+
+sales_by_region.write.parquet(DEFAULT_CURATED_DATA_PATH + "/sales_by_region.parquet")
+
+

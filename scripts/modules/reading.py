@@ -49,7 +49,6 @@ def read_transactions(spark: SparkSession, data_path: str = '../data/tables',
     Returns:
         `DataFrame`: Resulting dataframe.
     """
-    print(filename)
     return spark.read.parquet(f'{data_path}/{filename}')
 
 def read_merchants(spark: SparkSession, data_path: str = '../data/tables',
