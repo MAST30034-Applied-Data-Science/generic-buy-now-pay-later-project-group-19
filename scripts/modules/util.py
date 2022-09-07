@@ -4,6 +4,7 @@
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import *
 import re
+import numpy as np
 
 def check_missing_values(sdf: DataFrame) -> DataFrame:
     """ Check missing values in each column of the spark dataframe
@@ -26,12 +27,12 @@ def check_missing_values(sdf: DataFrame) -> DataFrame:
 
 def extract_tags(merchant_sdf: DataFrame) -> DataFrame:
     """ Extract tags, revenue level and take rate from tags column in the 
-        merchant dataset
-        Args:
-            merchant_sdf (`DataFrame`): merchant spark dataframe
-        Returns:
-            `DataFrame`: Resulting DataFrame
-        """
+    merchant dataset
+    Args:
+        merchant_sdf (`DataFrame`): merchant spark dataframe
+    Returns:
+        `DataFrame`: Resulting DataFrame
+    """
     
     # Since merchant df is small, we will use pandas for convenience
     merchant_sdf = merchant_sdf.toPandas()
@@ -66,12 +67,48 @@ def extract_tags(merchant_sdf: DataFrame) -> DataFrame:
             lambda x: extract(x, col)
         )
 
-        
     return merchant_sdf.drop(
             'tags',
             axis=1
         )
-    
 
+
+def remove_transaction_outliers(transaction_sdf: DataFrame) -> DataFrame:
+    """ Check outliers from the transaction dataset
+    Args:
+        transaction_sdf: transaction Spark DataFrame
+    Returns:
+        `DataFrame`: DataFrame post outlier removal
+    """
+    
+    transaction_sdf = transaction_sdf.withColumn(
+        'log(dollar_value)',
+        log(col('dollar_value'))
+    )
+
+    # Find lower and upper bound
+    lwr, upr = transaction_sdf.approxQuantile('log(dollar_value)', [0.25, 0.75], 0)
+    iqr = upr - lwr
+    lwr_bound = lwr - 1.5 * iqr
+    upr_bound = upr + 1.5 * iqr
+    
+    lwr_bound, upr_bound = np.exp(lwr_bound), np.exp(upr_bound)
+    
+    # Filter data by lower and upper bound
+    new_transaction = transaction_sdf.where(
+        (col('dollar_value') >= lwr_bound) &
+        (col('dollar_value') <= upr_bound)
+    )
+    
+    # Summary of outlier removal
+    print(f"Outlier Removal Summary:")
+    pre_removal = transaction_sdf.count()
+    post_removal = new_transaction.count()
+    print(f"New range of dollar per transaction: {lwr_bound:.2f} - {upr_bound:.2f}",
+          f"\nNumber of instances after outlier removal: {post_removal}",
+          f"\nNumber of outliers removed: {pre_removal - post_removal}",
+          f"\n% data removed: {((pre_removal - post_removal)/pre_removal)*100:.2f}%")
+    
+    return new_transaction
 
 

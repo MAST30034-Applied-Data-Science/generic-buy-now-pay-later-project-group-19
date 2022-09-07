@@ -2,7 +2,7 @@
 '''
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import *
+from pyspark.sql import functions as F
 
 def read_consumers(spark: SparkSession, data_path: str = '../data/tables',
         filename: str = 'tbl_consumer.csv') -> DataFrame:
@@ -38,7 +38,7 @@ def read_consumer_user_mappings(spark: SparkSession, data_path: str = '../data/t
     return spark.read.parquet(f'{data_path}/{filename}')
 
 def read_transactions(spark: SparkSession, data_path: str = '../data/tables',
-        filename: str = 'transactions_20210228_20210827_snapshot/') -> DataFrame:
+        filename: str = 'transactions_20210828_20220227_snapshot/') -> DataFrame:
     """ Read the transaction dataset.
 
     Args:
@@ -49,6 +49,7 @@ def read_transactions(spark: SparkSession, data_path: str = '../data/tables',
     Returns:
         `DataFrame`: Resulting dataframe.
     """
+    print(filename)
     return spark.read.parquet(f'{data_path}/{filename}')
 
 def read_merchants(spark: SparkSession, data_path: str = '../data/tables',

@@ -78,13 +78,25 @@ if SPARK:
 # %% Read in the datasets
 ################################################################################
 LOG.print_script_header('reading in the raw datasets')
-# test_data = READ.read_consumers(spark, data_path=args.input)
-# print(util.check_missing_values(test_data))
-
+consumer_data = READ.read_consumers(spark, data_path=args.input)
+transaction_data = READ.read_transactions(spark, data_path=args.input)
 merchant_data = READ.read_merchants(spark, data_path=args.input)
+user_detail_data = READ.read_consumer_user_mappings(spark, data_path=args.input)
+
+LOG.print_script_header('processing transaction datasets')
+print("Check missing values in the transaction dataset")
+print(util.check_missing_values(transaction_data))
+transaction_data = util.remove_transaction_outliers(transaction_data)
+
+LOG.print_script_header('processing merchant dataset')
+print("Check missing values in the merchants dataset")
+print(util.check_missing_values(merchant_data))
 merchant_data = util.extract_tags(merchant_data)
+print("Cleaning merchants tags")
+print("Printing first 5 rows of merchant data")
 print(merchant_data.head(5))
 
+LOG.print_script_header('processing consumer datasets')
 
 
 # LOG.debug('Just test that the transactions read correctly')
