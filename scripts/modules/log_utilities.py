@@ -20,9 +20,13 @@ logging.info("Start Logging")
 
 logger = logging.getLogger('logger')
 
+# add the file output handler
 should_roll_over = os.path.isfile(filename)
 handler = handlers.RotatingFileHandler(filename, mode='w', backupCount=5)
 if should_roll_over:  # log already exists, roll over!
     handler.doRollover()
 
 logger.addHandler(handler)
+
+# add the output handler
+logger.addHandler(logging.StreamHandler(sys.stdout))
