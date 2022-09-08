@@ -9,6 +9,8 @@ from datetime import datetime
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
+from modules.log_utilities import logger
+
 DEFAULT_DATA_PATH = '../data/tables'
 
 # regex queries for finding the relevant datasets
@@ -31,19 +33,6 @@ def union_or_create(df: DataFrame, new_df: DataFrame) -> DataFrame:
         return new_df
     else:
         return df.union(new_df)
-
-    """ Read in all the relevant datasets placed in the one raw/tables folder.
-    This makes assumptions about the naming schemes of each table,
-    as per the `regex` queries defined at the top of this module.
-
-    Args:
-        spark (`SparkSession`): Spark session reading the data.
-        data_path (str, optional): Path where the raw data is stored. 
-            Defaults to `../data/path` (the relative location from script locations).
-
-    Returns:
-        `
-    """
 
 def read_data(spark: SparkSession, 
         data_path: str = DEFAULT_DATA_PATH) -> 'defaultdict[str, DataFrame|None]':
@@ -81,12 +70,11 @@ def read_data(spark: SparkSession,
 
     # iterate through the filenames in the raw data path
     for filename in os.listdir(data_path):
-        print(f'READING {data_path}/{filename}')
-        rows_read = 0 # count the # of rows read for console output
-
         # iterate through each query and read dataset if it's relevant
         for table_name, query in read_queries.items():
             if re.search(query, filename):
+                logger.debug(f'READING {data_path}/{filename}')
+
                 # read in the new data
                 new_df = read_functions[table_name](spark, data_path, filename)
 
@@ -95,12 +83,10 @@ def read_data(spark: SparkSession,
                     read_datasets[table_name], new_df)
 
                 # count # of rows read
-                rows_read = new_df.count()
+                logger.debug(f'\tL> {new_df.count()} ROWS READ')
 
                 # exit early since this dataset was read in correctly
                 break
-
-        print(f'\tL> {rows_read} ROWS READ')
 
     return read_datasets
 
@@ -158,17 +144,24 @@ def read_transactions(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
     for subfolder in os.listdir(f'{data_path}/{folder}'):
         if not os.path.isdir(f'{data_path}/{folder}/{subfolder}'): continue
 
-        # read in this subfolder parquet
-        temp_df = spark.read.parquet(f'{data_path}/{folder}/{subfolder}')
+        # iterate over the files in the order_datetime subfolder
+        for filename in os.listdir(f'{data_path}/{folder}/{subfolder}'):
 
-        # add the order_datetime as a column
-        order_datetime = subfolder.split('=')[-1]
-        temp_df = temp_df.withColumn('order_datetime', 
-            F.lit(order_datetime))
-            # F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
+            # skip if the file is not a parquet file
+            if filename.split('.')[-1] != 'parquet': continue
 
-        # add this to the output
-        out_df = union_or_create(out_df, temp_df)
+            # read in this subfolder parquet
+            temp_df = spark.read.parquet(
+                f'{data_path}/{folder}/{subfolder}/{filename}')
+
+            # add the order_datetime as a column
+            order_datetime = subfolder.split('=')[-1]
+            temp_df = temp_df.withColumn('order_datetime', 
+                F.lit(order_datetime))
+                # F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
+
+            # add this to the output
+            out_df = union_or_create(out_df, temp_df)
 
     return out_df
 
