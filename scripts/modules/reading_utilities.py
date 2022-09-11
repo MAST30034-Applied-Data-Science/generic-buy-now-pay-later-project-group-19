@@ -90,7 +90,6 @@ def read_data(spark: SparkSession,
 
     return read_datasets
 
-
 def read_consumers(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
         filename: str = 'tbl_consumer.csv') -> DataFrame:
     """ Read the consumer dataset.
