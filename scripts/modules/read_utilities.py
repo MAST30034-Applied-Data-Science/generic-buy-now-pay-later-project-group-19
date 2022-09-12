@@ -83,7 +83,7 @@ def read_data(spark: SparkSession,
                     read_datasets[table_name], new_df)
 
                 # count # of rows read
-                logger.debug(f'{new_df.count()} ROWS READ FROM {data_path}/{filename}')
+                logger.info(f'{new_df.count()} ROWS READ FROM {data_path}/{filename}')
 
                 # exit early since this dataset was read in correctly
                 break

@@ -4,7 +4,7 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-def check_missing_values(df: DataFrame) -> DataFrame:
+def count_missing_values(df: DataFrame) -> DataFrame:
     """ Check missing values in each column of the spark dataframe.
 
     Args:

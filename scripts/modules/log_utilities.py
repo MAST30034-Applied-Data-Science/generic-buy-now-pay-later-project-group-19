@@ -23,5 +23,5 @@ logger.setLevel(logging.DEBUG)
 
 # create a file handler and set level to INFO
 file_handler = logging.FileHandler(filename, mode='w')
-file_handler.setLevel(logging.INFO)
+file_handler.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)

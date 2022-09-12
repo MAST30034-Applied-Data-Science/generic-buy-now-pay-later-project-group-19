@@ -6,7 +6,9 @@ from pyspark.sql import functions as F
 import re
 import numpy as np
 
-def extract_tags(merchant_df: DataFrame) -> DataFrame:
+from modules.log_utilities import logger
+
+def extract_merchant_tags(merchant_df: DataFrame) -> DataFrame:
     """ Extract tags, revenue level and take rate from tags column in the 
     merchant dataset
 
@@ -83,13 +85,13 @@ def remove_transaction_outliers(transaction_df: DataFrame) -> DataFrame:
     )
     
     # Summary of outlier removal
-    print(f"Outlier Removal Summary:")
+    logger.info(f"Outlier Removal Summary:")
     pre_removal = transaction_df.count()
     post_removal = new_transaction.count()
-    print(f"New range of dollar per transaction: {lwr_bound:.2f} - {upr_bound:.2f}",
-          f"\nNumber of instances after outlier removal: {post_removal}",
-          f"\nNumber of outliers removed: {pre_removal - post_removal}",
-          f"\n% data removed: {((pre_removal - post_removal)/pre_removal)*100:.2f}%")
+    logger.info(f"New range of dollar per transaction: {lwr_bound:.2f} - {upr_bound:.2f}")
+    logger.info(f"\nNumber of instances after outlier removal: {post_removal}")
+    logger.info(f"\nNumber of outliers removed: {pre_removal - post_removal}")
+    logger.info(f"\n% data removed: {((pre_removal - post_removal)/pre_removal)*100:.2f}%")
     
     return new_transaction
 

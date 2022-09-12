@@ -20,9 +20,9 @@ from pyspark.sql import SparkSession, DataFrame
 
 # Our Modules
 from modules.log_utilities import logger
-from modules.printing_utilities import print_script_header
-import modules.reading_utilities as READ
-import modules.cleaning_utilities as CLEAN
+import modules.print_utilities as PRINT
+import modules.read_utilities as READ
+import modules.clean_utilities as CLEAN
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
@@ -35,7 +35,7 @@ DEFAULT_OUTPUT_PATH = './data/curated' # where the curated data is
 # Define the ETL Process
 ################################################################################
 def etl(spark: SparkSession, input_path:str, 
-        output_path:str) -> 'defaultdict[str, DataFrame|None]':
+        output_path:str = DEFAULT_OUTPUT_PATH) -> 'defaultdict[str, DataFrame|None]':
     """ The whole etl process in one script.
 
     Args:
@@ -48,16 +48,14 @@ def etl(spark: SparkSession, input_path:str,
     """
 
     # read in the datasets
-    print_script_header('reading in the raw datasets')
+    PRINT.print_script_header('reading in the raw datasets')
     data_dict = READ.read_data(spark, args.input)
 
-    logger.debug(data_dict.keys())
+    logger.debug(f'Added datasets: {data_dict.keys()}')
 
     # summaries of the datasets
-    for dataset_name, df in data_dict.items():
-        logger.debug(df.show(20))
-        logger.info(f'Check missing values in the {dataset_name} dataset')
-        logger.info(f'{CLEAN.check_missing_values(df)}')
+    PRINT.print_script_header('summary information')
+    PRINT.print_dataset_summary(data_dict)
 
     # remove outliers in transactions
     logger.info('Removing transaction outliers')
@@ -67,9 +65,9 @@ def etl(spark: SparkSession, input_path:str,
 
     # extract merchant tags
     logger.info('Extracting merchant tags')
-    data_dict['merchants'] = CLEAN.extract_tags(data_dict['merchants'])
+    data_dict['merchants'] = CLEAN.extract_merchant_tags(data_dict['merchants'])
+    PRINT.print_dataset_summary(data_dict, 'merchants')
 
-    
 
     return data_dict
 
@@ -110,7 +108,7 @@ if __name__ == '__main__':
     ############################################################################
     # Start a spark session
     ############################################################################
-    print_script_header('creating the spark session')
+    PRINT.print_script_header('creating the spark session')
     spark = (
         SparkSession.builder.appName("MAST30034 Project 2")
         .config("spark.sql.repl.eagerEval.enabled", True) 
@@ -124,4 +122,5 @@ if __name__ == '__main__':
     ############################################################################
     # Run the ETL Process
     ############################################################################
-    etl(spark, args.input, args.output)
+    output = etl(spark, args.input, args.output)
+    
