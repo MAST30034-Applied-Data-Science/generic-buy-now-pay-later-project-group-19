@@ -6,31 +6,6 @@ from pyspark.sql import functions as F
 import re
 import numpy as np
 
-def check_missing_values(df: DataFrame) -> DataFrame:
-    """ Check missing values in each column of the spark dataframe.
-
-    Args:
-        df (`DataFrame`): Dataset to check.
-    Returns:
-        `DataFrame`: `DataFrame` with number of missing values in each column
-    """
-    return df.select(
-            [
-                F.count(
-                    F.when(
-                        F.col(c).contains('None') | \
-                        F.col(c).contains('NULL') | \
-                        (F.col(c) == '' ) | \
-                        F.col(c).isNull() | \
-                        F.isnan(c), 
-                        c
-                    )
-                ).alias(c)
-                for c, dtype in df.dtypes if dtype != 'date'
-            ]
-        )
-
-
 def extract_tags(merchant_df: DataFrame) -> DataFrame:
     """ Extract tags, revenue level and take rate from tags column in the 
     merchant dataset

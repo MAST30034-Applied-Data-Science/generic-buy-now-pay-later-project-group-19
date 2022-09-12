@@ -10,23 +10,18 @@ homescript_dir = sys.argv[0]
 homescript = homescript_dir.split('/')[-1].split('.')[0]
 filename = f'./log/{homescript}.log'
 
-logging.basicConfig(filename=filename,
-                    filemode='a',
-        # format='<%(asctime)s|%(filename)s:%(funcName)s:%(lineno)d|%(levelname)s> %(message)s',
-                    datefmt='%H:%M:%S',
-                    level=logging.DEBUG)
+logging.basicConfig(
+    format='<%(levelname)s @ %(asctime)s | %(filename)s:%(lineno)s> %(message)s',
+    datefmt='%H:%M:%S',
+    level=logging.ERROR
+)
 
 logging.info("Start Logging")
 
-logger = logging.getLogger('logger')
+logger = logging.getLogger('etl_logger')
+logger.setLevel(logging.DEBUG)
 
-# add the file output handler
-should_roll_over = os.path.isfile(filename)
-handler = handlers.RotatingFileHandler(filename, mode='w', backupCount=5)
-if should_roll_over:  # log already exists, roll over!
-    handler.doRollover()
-
-logger.addHandler(handler)
-
-# add the output handler
-logger.addHandler(logging.StreamHandler(sys.stdout))
+# create a file handler and set level to INFO
+file_handler = logging.FileHandler(filename, mode='w')
+file_handler.setLevel(logging.INFO)
+logger.addHandler(file_handler)

@@ -22,6 +22,7 @@ from pyspark.sql import SparkSession, DataFrame
 from modules.log_utilities import logger
 from modules.printing_utilities import print_script_header
 import modules.reading_utilities as READ
+import modules.cleaning_utilities as CLEAN
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
@@ -51,10 +52,26 @@ def etl(spark: SparkSession, input_path:str,
     data_dict = READ.read_data(spark, args.input)
 
     logger.debug(data_dict.keys())
-    logger.debug(data_dict['consumers'].show(20))
-    logger.debug(data_dict['consumer_user_mappings'].show(20))
-    logger.debug(data_dict['transactions'].show(20))
-    logger.debug(data_dict['merchants'].show(20))
+
+    # summaries of the datasets
+    for dataset_name, df in data_dict.items():
+        logger.debug(df.show(20))
+        logger.info(f'Check missing values in the {dataset_name} dataset')
+        logger.info(f'{CLEAN.check_missing_values(df)}')
+
+    # remove outliers in transactions
+    logger.info('Removing transaction outliers')
+    data_dict['transactions'] = CLEAN.remove_transaction_outliers(
+        data_dict['transactions']
+    )
+
+    # extract merchant tags
+    logger.info('Extracting merchant tags')
+    data_dict['merchants'] = CLEAN.extract_tags(data_dict['merchants'])
+
+    
+
+    return data_dict
 
 ################################################################################
 # Functionality to only run in script mode
