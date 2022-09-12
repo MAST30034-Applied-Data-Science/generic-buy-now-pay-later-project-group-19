@@ -1,4 +1,5 @@
 ''' Provide functionality to aggregate datasets.
+TODO: commenting on this
 '''
 from collections import defaultdict
 
@@ -16,20 +17,23 @@ AGGREGATION_FUNCTIONS = {
 def compute_aggregates():
     print('')
 
-def compute_merchant_sales(spark: SparkSession, transactions_df: DataFrame, merchants_df: pd.DataFrame):
-    merchant_sales_df = transactions_df \
+def compute_merchant_sales(spark: SparkSession, 
+        data_dict: 'defaultdict[str]') -> 'defaultdict[str]':
+    # TODO:Commenting here
+
+    merchant_sales_df = data_dict['transactions'] \
         .groupby('merchant_abn', 'order_datetime') \
         .agg({'dollar_value':'sum', 'order_id':'count'}) \
         .withColumnRenamed('sum(dollar_value)', 'sales_revenue') \
         .withColumnRenamed('count(order_id)', 'no_orders')
     
-    merchant_sales_df = merchant_sales_df.toPandas().join(
-        merchants_df,
+    data_dict['merchant_sales'] = merchant_sales_df.join(
+        data_dict['merchants'],
         on='merchant_abn',
         how='right'
     )
 
-    return merchant_sales_df
+    return data_dict
 
 def compute_customer_spending():
     print('')

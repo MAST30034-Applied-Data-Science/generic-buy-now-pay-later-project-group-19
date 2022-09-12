@@ -58,20 +58,16 @@ def etl(spark: SparkSession, input_path:str,
     PRINT.print_script_header('summary information')
     PRINT.print_dataset_summary(data_dict)
 
-    # remove outliers in transactions
-    logger.info('Removing transaction outliers')
-    data_dict['transactions'] = CLEAN.remove_transaction_outliers(
-        data_dict['transactions']
-    )
+    # clean the data
+    PRINT.print_script_header('cleaning the data')
+    data_dict = CLEAN.clean_data(spark, data_dict)
+    PRINT.print_dataset_summary(data_dict, 
+        ['transactions', 'merchants', 'merchant_tags'])
 
-    # extract merchant tags
-    logger.info('Extracting merchant tags')
-    data_dict['merchants'] = CLEAN.extract_merchant_tags(data_dict['merchants'])
-    PRINT.print_dataset_summary(data_dict, 'merchants')
 
     print(
         PRINT.str_df_head(
-            AGG.compute_merchant_sales(spark, data_dict['transactions'], data_dict['merchants']).show(20)
+            AGG.compute_merchant_sales(spark, data_dict)['merchant_sales']
         )
     )
 

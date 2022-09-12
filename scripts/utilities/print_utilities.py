@@ -26,6 +26,8 @@ def str_df_head(df, n: int = 20) -> str:
         return df.to_string(max_rows=n)
     elif type(df) == GDF:
         return df.head(n)
+    elif type(df) == list:
+        return df[:n]
     logger.error(f'This is not a known DataFrame type {type(df)}')
     return 'This is not a known DataFrame type.'
 
@@ -35,9 +37,12 @@ def print_script_header(header: str):
     Args:
         header (str): Header title
     """
-    logger.info(f'''
-    === {header.upper()}
-    {50 * '='}''')
+    logger.info(
+        f'''
+        === {header.upper()}
+        {50 * '='}
+        '''
+    )
 
 def print_dataset_summary(data_dict: 'defaultdict[str]',
         datasets: 'list[str]|None' = None):
