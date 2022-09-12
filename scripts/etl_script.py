@@ -19,10 +19,11 @@ from pyspark.sql import SparkSession, DataFrame
 # ... TODO: Add to this as necessary
 
 # Our Modules
-from modules.log_utilities import logger
-import modules.print_utilities as PRINT
-import modules.read_utilities as READ
-import modules.clean_utilities as CLEAN
+from utilities.log_utilities import logger
+import utilities.print_utilities as PRINT
+import utilities.read_utilities as READ
+import utilities.clean_utilities as CLEAN
+import utilities.agg_utilities as AGG
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
@@ -68,6 +69,11 @@ def etl(spark: SparkSession, input_path:str,
     data_dict['merchants'] = CLEAN.extract_merchant_tags(data_dict['merchants'])
     PRINT.print_dataset_summary(data_dict, 'merchants')
 
+    print(
+        PRINT.str_df_head(
+            AGG.compute_merchant_sales(spark, data_dict['transactions'], data_dict['merchants']).show(20)
+        )
+    )
 
     return data_dict
 

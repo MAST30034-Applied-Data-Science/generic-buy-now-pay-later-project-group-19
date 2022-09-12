@@ -7,8 +7,8 @@ from pyspark.sql import DataFrame as SDF
 from pandas import DataFrame as PDF
 from geopandas import GeoDataFrame as GDF
 
-from modules.log_utilities import logger
-import modules.info_utilities as INFO
+from utilities.log_utilities import logger
+import utilities.info_utilities as INFO
 
 def str_df_head(df, n: int = 20) -> str:
     """ Generates the output string for the head of any type of `DataFrame`.
@@ -36,8 +36,8 @@ def print_script_header(header: str):
         header (str): Header title
     """
     logger.info(f'''
-        === {header.upper()}
-        {50 * '='}''')
+    === {header.upper()}
+    {50 * '='}''')
 
 def print_dataset_summary(data_dict: 'defaultdict[str]',
         datasets: 'list[str]|None' = None):

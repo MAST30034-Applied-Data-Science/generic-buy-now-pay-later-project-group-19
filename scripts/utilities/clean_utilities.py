@@ -6,7 +6,7 @@ from pyspark.sql import functions as F
 import re
 import numpy as np
 
-from modules.log_utilities import logger
+from utilities.log_utilities import logger
 
 def extract_merchant_tags(merchant_df: DataFrame) -> DataFrame:
     """ Extract tags, revenue level and take rate from tags column in the 

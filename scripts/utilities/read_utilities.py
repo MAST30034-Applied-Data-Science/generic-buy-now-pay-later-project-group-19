@@ -5,11 +5,12 @@ from collections import defaultdict
 import os
 import re
 from datetime import datetime
+import functools
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
-from modules.log_utilities import logger
+from utilities.log_utilities import logger
 
 DEFAULT_DATA_PATH = '../data/tables'
 
@@ -35,7 +36,7 @@ def union_or_create(df: DataFrame, new_df: DataFrame) -> DataFrame:
         return df.union(new_df)
 
 def read_data(spark: SparkSession, 
-        data_path: str = DEFAULT_DATA_PATH) -> 'defaultdict[str, DataFrame|None]':
+        data_path: str = DEFAULT_DATA_PATH) -> 'defaultdict[str]':
     """ Read in all the relevant datasets placed in the one raw/tables folder.
     This makes assumptions about the naming schemes and file formats of each dataset,
     as per the `regex` queries defined at the top of this module.
@@ -139,28 +140,46 @@ def read_transactions(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
     # output df
     out_df = None
 
-    # iterate over the subfolders in the transactions folder (ignore non-subfolder paths)
-    for subfolder in os.listdir(f'{data_path}/{folder}'):
-        if not os.path.isdir(f'{data_path}/{folder}/{subfolder}'): continue
+    # get the files in the folder
+    list_files = os.listdir(f'{data_path}/{folder}')
+    list_files = list_files[1:(len(list_files)-1)]
 
-        # iterate over the files in the order_datetime subfolder
-        for filename in os.listdir(f'{data_path}/{folder}/{subfolder}'):
+    # explicit function
+    def unionAll(dfs):
+        return functools.reduce(lambda df1, df2: df1.union(df2.select(df1.columns)), dfs)
 
-            # skip if the file is not a parquet file
-            if filename.split('.')[-1] != 'parquet': continue
+    # read files
+    file_name = os.listdir(f'{data_path}/{folder}/' + list_files[0])[1]
+    out_df = spark.read.parquet(f'{data_path}/{folder}/' + list_files[0] +"/" + file_name)
+    out_df = out_df.withColumn('order_datetime',F.lit(list_files[0][15:]))
+    for i in list_files[1:]:
+        file_name = os.listdir(f'{data_path}/{folder}/' + i)[1]
+        tmp = spark.read.parquet(f'{data_path}/{folder}/' + i + "/" + file_name)
+        tmp = tmp.withColumn('order_datetime', F.lit(i[15:]))
+        out_df = unionAll([out_df, tmp] )
 
-            # read in this subfolder parquet
-            temp_df = spark.read.parquet(
-                f'{data_path}/{folder}/{subfolder}/{filename}')
+    # # iterate over the subfolders in the transactions folder (ignore non-subfolder paths)
+    # for subfolder in os.listdir(f'{data_path}/{folder}'):
+    #     if not os.path.isdir(f'{data_path}/{folder}/{subfolder}'): continue
 
-            # add the order_datetime as a column
-            order_datetime = subfolder.split('=')[-1]
-            temp_df = temp_df.withColumn('order_datetime', 
-                F.lit(order_datetime))
-                # F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
+    #     # iterate over the files in the order_datetime subfolder
+    #     for filename in os.listdir(f'{data_path}/{folder}/{subfolder}'):
 
-            # add this to the output
-            out_df = union_or_create(out_df, temp_df)
+    #         # skip if the file is not a parquet file
+    #         if filename.split('.')[-1] != 'parquet': continue
+
+    #         # read in this subfolder parquet
+    #         temp_df = spark.read.parquet(
+    #             f'{data_path}/{folder}/{subfolder}/{filename}')
+
+    #         # add the order_datetime as a column
+    #         order_datetime = subfolder.split('=')[-1]
+    #         temp_df = temp_df.withColumn('order_datetime', 
+    #             F.lit(order_datetime))
+    #             # F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
+
+    #         # add this to the output
+    #         out_df = union_or_create(out_df, temp_df)
 
     return out_df
 
