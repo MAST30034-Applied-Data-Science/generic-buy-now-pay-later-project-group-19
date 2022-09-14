@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from pyspark.sql import DataFrame as SDF
 from pandas import DataFrame as PDF
+from pandas import Series as PS
 from geopandas import GeoDataFrame as GDF
 
 from utilities.log_utilities import logger
@@ -22,7 +23,7 @@ def str_df_head(df, n: int = 20) -> str:
     """
     if type(df) == SDF:
         return df.show(n)
-    elif type(df) == PDF:
+    elif type(df) == PDF or type(df) == PS:
         return df.to_string(max_rows=n)
     elif type(df) == GDF:
         return df.head(n)

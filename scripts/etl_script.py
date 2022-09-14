@@ -66,11 +66,11 @@ def etl(spark: SparkSession, input_path:str,
         ['transactions', 'merchants', 'merchant_tags'])
 
 
-    print(
-        PRINT.str_df_head(
-            AGG.compute_merchant_sales(spark, data_dict)['merchant_sales']
-        )
-    )
+    # print(
+    #     PRINT.str_df_head(
+    #         AGG.compute_merchant_sales(spark, data_dict)['merchant_sales']
+    #     )
+    # )
 
     logger.warn('I will now save all the data unless output path is None.')
     
