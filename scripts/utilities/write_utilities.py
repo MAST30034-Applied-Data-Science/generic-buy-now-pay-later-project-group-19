@@ -7,6 +7,7 @@ import os
 import pandas as pd
 from pyspark.sql import DataFrame as SDF
 from pandas import DataFrame as PDF
+from pandas import Series as PS
 from geopandas import GeoDataFrame as GDF
 
 from utilities.log_utilities import logger
@@ -19,7 +20,7 @@ def write_data(data_dict: 'defaultdict[str]',
     for dataset_name, data in data_dict.items():
 
         # filename to save the dataset with
-        save_name = f'{data_path}/{dataset_name}.parquet'
+        save_name = f'{data_path}/{dataset_name}'
 
         if type(data) == SDF:
             data:SDF = data
@@ -27,8 +28,12 @@ def write_data(data_dict: 'defaultdict[str]',
         elif type(data) == PDF:
             data:PDF = data
             data.to_parquet(save_name)
-        elif type(data) == SDF:
-            data.to_parquet(save_name)
+        elif type(data) == PS:
+            data:PS = data
+            data.to_csv(save_name)
+        elif type(data) == GDF:
+            data:GDF = data
+            data.to_file(save_name)
         else: 
             logger.error(
                 'you\'ve given me a file format I don\'t know how to save.'
