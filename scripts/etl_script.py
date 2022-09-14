@@ -72,7 +72,7 @@ def etl(spark: SparkSession, input_path:str,
     #     )
     # )
 
-    logger.warn('I will now save all the data unless output path is None.')
+    logger.warning('I will now save all the data unless output path is None.')
     
     if output_path is not None:
         WRITE.write_data(data_dict, output_path)

@@ -170,7 +170,7 @@ def read_transactions(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
         
     except: # specifically for and by Tommy (the rest of the group doesn't activate this code)
 
-        logger.warn('''Something went wrong with reading transactions,''' 
+        logger.error('''Something went wrong with reading transactions,''' 
         + ''' so I'm using Tommy's method. If you're not Tommy,'''
         + ''' something may have gone wrong.''')
 
