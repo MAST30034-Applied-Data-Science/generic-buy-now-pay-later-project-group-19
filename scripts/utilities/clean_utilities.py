@@ -60,7 +60,7 @@ def remove_transaction_outliers(spark: SparkSession,
 
     # Find lower and upper bound
     lwr, upr = data_dict['transactions'].approxQuantile(
-        'log(dollar_value)', [0.25, 0.75], 0)
+        'log(dollar_value)', [0.25, 0.75], 0.001)
     iqr = upr - lwr
     lwr_bound = lwr - 1.5 * iqr
     upr_bound = upr + 1.5 * iqr
