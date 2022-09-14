@@ -22,6 +22,8 @@ def write_data(data_dict: 'defaultdict[str]',
         # filename to save the dataset with
         save_name = f'{data_path}/{dataset_name}'
 
+        logger.info(f'saving {save_name}')
+
         if type(data) == SDF:
             data:SDF = data
             data.write.mode('overwrite').parquet(save_name)
