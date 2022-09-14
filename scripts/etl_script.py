@@ -61,7 +61,7 @@ def etl(spark: SparkSession, input_path:str,
 
     # clean the data
     PRINT.print_script_header('cleaning the data')
-    data_dict = CLEAN.clean_data(spark, data_dict)
+    CLEAN.clean_data(spark, data_dict)
     PRINT.print_dataset_summary(data_dict, 
         ['transactions', 'merchants', 'merchant_tags'])
 
@@ -74,8 +74,8 @@ def etl(spark: SparkSession, input_path:str,
 
     logger.warn('I will now save all the data unless output path is None.')
     
-    if output_path is None:
-        WRITE.write_data(data_dict, input_path, output_path)
+    if output_path is not None:
+        WRITE.write_data(data_dict, output_path)
 
     return data_dict
 
@@ -133,6 +133,4 @@ if __name__ == '__main__':
     ############################################################################
     # Run the ETL Process
     ############################################################################
-    output = etl(spark, input_path, output_path)
-    WRITE.write_data(output, output_path)
-    
+    output = etl(spark, input_path, output_path)    
