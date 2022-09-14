@@ -142,26 +142,26 @@ def extract_merchant_tags(spark: SparkSession,
 class MerchantPreprocessor:
     def __init__(self, correct_method="auto"):
         self.lemmatizer = WordNetLemmatizer()
-        self.correct_words = words.words()
-        self.correct_method = correct_method
-        self.stopwords = set(stopwords.words('english'))
+#         self.correct_words = words.words()
+#         self.correct_method = correct_method
+#         self.stopwords = set(stopwords.words('english'))
 
-        if correct_method == "auto":
-            self.auto_corrector = Speller(lang='en')
+#         if correct_method == "auto":
+#             self.auto_corrector = Speller(lang='en')
     
-    # jaccard distance is better for minor typos
-    def __correct_spelling__(self,word):
-        # match the first character
-        if self.correct_method == "jaccard":
-            similarity_list = [(jaccard_distance(set(ngrams(word, 2)),set(ngrams(w, 2))),w) for w in self.correct_words if w[0]==word[0]]
-            similarity_list = sorted(similarity_list, key = lambda val:val[0])
-            return similarity_list[0][1]
-        if self.correct_method == "edit_distance":
-            similarity_list = [(edit_distance(word,w),w) for w in self.correct_words if w[0]==word[0]]
-            similarity_list = sorted(similarity_list, key = lambda val:val[0])
-            return similarity_list[0][1]
-        else:
-            return self.auto_corrector(word)
+#     # jaccard distance is better for minor typos
+#     def __correct_spelling__(self,word):
+#         # match the first character
+#         if self.correct_method == "jaccard":
+#             similarity_list = [(jaccard_distance(set(ngrams(word, 2)),set(ngrams(w, 2))),w) for w in self.correct_words if w[0]==word[0]]
+#             similarity_list = sorted(similarity_list, key = lambda val:val[0])
+#             return similarity_list[0][1]
+#         if self.correct_method == "edit_distance":
+#             similarity_list = [(edit_distance(word,w),w) for w in self.correct_words if w[0]==word[0]]
+#             similarity_list = sorted(similarity_list, key = lambda val:val[0])
+#             return similarity_list[0][1]
+#         else:
+#             return self.auto_corrector(word)
 
 
     # case standardization -> puncuation, number removal -> 
@@ -185,10 +185,10 @@ class MerchantPreprocessor:
             new_tag = word_tokenize(tag)
 
             #correct spelling
-            new_tag = [self.__correct_spelling__(text) for text in new_tag ]
+#             new_tag = [self.__correct_spelling__(text) for text in new_tag ]
         
             #stop word removal
-            new_tag = [text for text in new_tag if text not in self.stopwords]
+#             new_tag = [text for text in new_tag if text not in self.stopwords]
 
             #lemmatization
             new_tag = [self.lemmatizer.lemmatize(text) for text in new_tag]
