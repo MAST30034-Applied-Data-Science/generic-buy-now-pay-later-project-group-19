@@ -10,6 +10,9 @@ homescript_dir = sys.argv[0]
 homescript = homescript_dir.split('/')[-1].split('.')[0]
 filename = f'./log/{homescript}.log'
 
+if not os.path.exists('./log'):
+    os.mkdir('./log')
+
 logging.basicConfig(
     format='<%(levelname)s @ %(asctime)s | %(filename)s:%(lineno)s> %(message)s',
     datefmt='%H:%M:%S',
