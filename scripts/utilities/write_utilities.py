@@ -32,7 +32,7 @@ def write_data(data_dict: 'defaultdict[str]',
             data.to_parquet(save_name)
         elif type(data) == PS:
             data:PS = data
-            data.to_csv(save_name)
+            data.to_csv(save_name + '.csv')
         elif type(data) == GDF:
             data:GDF = data
             data.to_file(save_name)
