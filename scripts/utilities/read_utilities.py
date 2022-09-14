@@ -140,23 +140,92 @@ def read_transactions(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
     # output df
     out_df = None
 
-    # get the files in the folder
-    list_files = os.listdir(f'{data_path}/{folder}')
-    list_files = list_files[1:(len(list_files)-1)]
+    try:
 
-    # explicit function
-    def unionAll(dfs):
-        return functools.reduce(lambda df1, df2: df1.union(df2.select(df1.columns)), dfs)
+        logger.info('Trying to read transactions the nice way.')
 
-    # read files
-    file_name = os.listdir(f'{data_path}/{folder}/' + list_files[0])[1]
-    out_df = spark.read.parquet(f'{data_path}/{folder}/' + list_files[0] +"/" + file_name)
-    out_df = out_df.withColumn('order_datetime',F.lit(list_files[0][15:]))
-    for i in list_files[1:]:
-        file_name = os.listdir(f'{data_path}/{folder}/' + i)[1]
-        tmp = spark.read.parquet(f'{data_path}/{folder}/' + i + "/" + file_name)
-        tmp = tmp.withColumn('order_datetime', F.lit(i[15:]))
-        out_df = unionAll([out_df, tmp] )
+        # iterate over the subfolders in the transactions folder (ignore non-subfolder paths)
+        for subfolder in os.listdir(f'{data_path}/{folder}'):
+            if not os.path.isdir(f'{data_path}/{folder}/{subfolder}'): continue
+
+            # iterate over the files in the order_datetime subfolder
+            for filename in os.listdir(f'{data_path}/{folder}/{subfolder}'):
+
+                # skip if the file is not a parquet file
+                if filename.split('.')[-1] != 'parquet': continue
+
+                # read in this subfolder parquet
+                temp_df = spark.read.parquet(
+                    f'{data_path}/{folder}/{subfolder}/{filename}')
+
+                # add the order_datetime as a column
+                order_datetime = subfolder.split('=')[-1]
+                temp_df = temp_df.withColumn('order_datetime', 
+                    F.lit(order_datetime))
+                    # F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
+
+                # add this to the output
+                out_df = union_or_create(out_df, temp_df)
+        
+    except: # specifically for and by Tommy (the rest of the group doesn't activate this code)
+
+        logger.warn('''Something went wrong with reading transactions,''' 
+        + ''' so I'm using Tommy's method. If you're not Tommy,'''
+        + ''' something may have gone wrong.''')
+
+        # get the files in the folder
+        list_files = os.listdir(f'{data_path}/{folder}')
+        list_files = list_files[1:(len(list_files)-1)]
+
+        # explicit function
+        def union_all(dfs) -> DataFrame:
+            """ Stack all the `DataFrames`.
+
+            Args:
+                dfs: the datasets to merge vertically.
+
+            Returns:
+                `DataFrame`: Output/stacked dataset
+            """
+            return functools.reduce(lambda df1, df2: df1.union(df2.select(df1.columns)), dfs)
+
+        # read files
+        file_names = os.listdir(f'{data_path}/{folder}/' + list_files[0])
+        
+        # just keep the `.parquet` file only
+        def get_parquet_filename(file_names: list(str)) -> str:
+            """ Get the filename of the only `.parquet` file in the
+             `order_datetime` folder.
+
+            Args:
+                file_names (list[str]): List of filenames to check
+
+            Returns:
+                str: The filename of the only/first `.parquet` file.
+            """
+            for fn in file_names:
+                if fn.split('.')[-1] == '.parquet':
+                    return fn
+
+        file_name = get_parquet_filename(file_names)
+
+        # start the output unioned df
+        out_df = spark.read.parquet(f'{data_path}/{folder}/' + list_files[0] +"/" + file_name)
+        out_df = out_df.withColumn('order_datetime',F.lit(list_files[0].split('=')[-1]))
+        
+        # iterate through the rest of the parquet files and union them
+        for i in list_files[1:]:
+
+            # get the filename
+            file_names = os.listdir(f'{data_path}/{folder}/' + i)
+            file_name = get_parquet_filename(file_names)
+
+            # extract this folder's data
+            tmp = spark.read.parquet(f'{data_path}/{folder}/' + i + "/" + file_name)
+            tmp = tmp.withColumn('order_datetime', F.lit(i[15:]))
+
+            # merge
+            out_df = union_all([out_df, tmp] )
 
     # # iterate over the subfolders in the transactions folder (ignore non-subfolder paths)
     # for subfolder in os.listdir(f'{data_path}/{folder}'):
