@@ -24,6 +24,7 @@ import utilities.print_utilities as PRINT
 import utilities.read_utilities as READ
 import utilities.clean_utilities as CLEAN
 import utilities.agg_utilities as AGG
+import utilities.write_utilities as WRITE
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
@@ -50,7 +51,7 @@ def etl(spark: SparkSession, input_path:str,
 
     # read in the datasets
     PRINT.print_script_header('reading in the raw datasets')
-    data_dict = READ.read_data(spark, args.input)
+    data_dict = READ.read_data(spark, input_path)
 
     logger.debug(f'Added datasets: {data_dict.keys()}')
 
@@ -70,6 +71,11 @@ def etl(spark: SparkSession, input_path:str,
             AGG.compute_merchant_sales(spark, data_dict)['merchant_sales']
         )
     )
+
+    logger.warn('I will now save all the data unless output path is None.')
+    
+    if output_path is None:
+        WRITE.write_data(data_dict, input_path, output_path)
 
     return data_dict
 
@@ -92,17 +98,20 @@ if __name__ == '__main__':
 
     # data input
     parser.add_argument('-i', '--input', 
-        default=DEFAULT_INPUT_PATH,
+        default=READ.DEFAULT_INPUT_PATH,
         help='the folder where the data is stored.')
 
     # output folder
     parser.add_argument('-o', '--output', 
-        default=DEFAULT_OUTPUT_PATH,
+        default=WRITE.DEFAULT_OUTPUT_PATH,
         help='the folder where the results are stored. Subdirectories may be created.')
 
     # ... TODO: Add to this as necessary
 
     args = parser.parse_args()
+
+    input_path = args.input
+    output_path = args.output
     
     # print args to debug
     logger.debug(f'arguments: \n{args}')
@@ -124,5 +133,6 @@ if __name__ == '__main__':
     ############################################################################
     # Run the ETL Process
     ############################################################################
-    output = etl(spark, args.input, args.output)
+    output = etl(spark, input_path, output_path)
+    WRITE.write_data(output, output_path)
     

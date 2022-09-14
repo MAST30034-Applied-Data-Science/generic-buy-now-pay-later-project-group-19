@@ -12,7 +12,7 @@ from pyspark.sql import functions as F
 
 from utilities.log_utilities import logger
 
-DEFAULT_DATA_PATH = '../data/tables'
+DEFAULT_INPUT_PATH = './data/tables' # where the raw data is
 
 # regex queries for finding the relevant datasets
 RE_CONSUMERS = r'tbl_consumer.*\.csv'
@@ -36,7 +36,7 @@ def union_or_create(df: DataFrame, new_df: DataFrame) -> DataFrame:
         return df.union(new_df)
 
 def read_data(spark: SparkSession, 
-        data_path: str = DEFAULT_DATA_PATH) -> 'defaultdict[str]':
+        data_path: str = DEFAULT_INPUT_PATH) -> 'defaultdict[str]':
     """ Read in all the relevant datasets placed in the one raw/tables folder.
     This makes assumptions about the naming schemes and file formats of each dataset,
     as per the `regex` queries defined at the top of this module.
@@ -91,7 +91,7 @@ def read_data(spark: SparkSession,
 
     return read_datasets
 
-def read_consumers(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
+def read_consumers(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
         filename: str = 'tbl_consumer.csv') -> DataFrame:
     """ Read the consumer dataset.
 
@@ -110,7 +110,8 @@ def read_consumers(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
             header = True,
         )
 
-def read_consumer_user_mappings(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
+def read_consumer_user_mappings(spark: SparkSession, 
+        data_path: str = DEFAULT_INPUT_PATH, 
         filename: str = 'consumer_user_details.parquet') -> DataFrame:
     """ Read the `user_id` to `consumer_id` mapping dataset.
 
@@ -124,7 +125,7 @@ def read_consumer_user_mappings(spark: SparkSession, data_path: str = DEFAULT_DA
     """
     return spark.read.parquet(f'{data_path}/{filename}')
 
-def read_transactions(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
+def read_transactions(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
         folder: str = 'transactions_20210228_20210827_snapshot') -> DataFrame:
     """ Read the transaction dataset.
 
@@ -252,7 +253,7 @@ def read_transactions(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
 
     return out_df
 
-def read_merchants(spark: SparkSession, data_path: str = DEFAULT_DATA_PATH,
+def read_merchants(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
         filename: str = 'tbl_merchants.parquet') -> DataFrame:
     """ Read the merchant dataset.
 
