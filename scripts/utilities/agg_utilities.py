@@ -14,32 +14,52 @@ AGGREGATION_FUNCTIONS = {
     'count': ('num_', F.count),
 }
 
-def compute_aggregates():
-    print('')
+def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
+    
+    data_dict['merchant_sales'] = compute_merchant_sales(spark,
+        data_dict['transactions'], data_dict['merchants'])
+    data_dict['customer_accounts'] = compute_customer_accounts(spark,
+        data_dict['consumers'], data_dict['consumer_user_mappings'])
+    data_dict['customer_transactions'] = compute_customer_transactions(
+        spark, data_dict['transactions'], data_dict['customer_accounts'])
 
-def compute_merchant_sales(spark: SparkSession, 
-        data_dict: 'defaultdict[str]') -> 'defaultdict[str]':
+    return data_dict
+
+def compute_merchant_sales(spark: SparkSession, transaction_df: DataFrame, 
+        merchant_df: DataFrame) -> 'defaultdict[str]':
     # TODO:Commenting here
 
-    merchant_sales_df = data_dict['transactions'] \
+    merchant_sales_df = transaction_df \
         .groupby('merchant_abn', 'order_datetime') \
         .agg({'dollar_value':'sum', 'order_id':'count'}) \
         .withColumnRenamed('sum(dollar_value)', 'sales_revenue') \
         .withColumnRenamed('count(order_id)', 'no_orders')
     
-    data_dict['merchant_sales'] = merchant_sales_df.join(
-        data_dict['merchants'],
+    return merchant_sales_df.join(
+        merchant_df,
         on='merchant_abn',
         how='right'
     )
 
-    return data_dict
+def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame, 
+        consumer_user_mapping_df: DataFrame) -> DataFrame:
+    
+    return consumer_df.join(
+        consumer_user_mapping_df,
+        on = 'user_id'
+    )
 
-def compute_customer_spending():
-    print('')
+def compute_customer_transactions(spark: SparkSession, 
+        transactions_df: DataFrame,
+        customer_accounts_df: DataFrame) -> DataFrame:
+    
+    return transactions_df.join(
+        customer_accounts_df,
+        on='user_id'
+    )
 
-def compute_sales_by_region():
-    print('')
+# def compute_sales_by_region():
+#     print('')
 
 def group_and_aggregate(df: DataFrame, group_cols: "list[str]", agg_cols: dict) -> DataFrame:
     """ Group a dataset and aggregate it using the chosen functions

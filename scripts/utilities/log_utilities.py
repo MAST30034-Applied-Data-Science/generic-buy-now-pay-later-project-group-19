@@ -14,7 +14,7 @@ if not os.path.exists('./log'):
     os.mkdir('./log')
 
 logging.basicConfig(
-    format='<%(levelname)s @ %(asctime)s | %(filename)s:%(lineno)s> %(message)s',
+    format='<%(asctime)s | %(filename)s:%(lineno)s | %(levelname)s> %(message)s',
     datefmt='%H:%M:%S',
     level=logging.ERROR
 )
