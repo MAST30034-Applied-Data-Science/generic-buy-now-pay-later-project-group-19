@@ -3,6 +3,7 @@
 
 from collections import defaultdict
 import logging
+import pprint
 
 from pyspark.sql import DataFrame as SDF
 from pandas import DataFrame as PDF
@@ -70,7 +71,7 @@ def print_dataset_summary(data_dict: 'defaultdict[str]',
         if datasets is not None and dataset_name not in datasets: continue
         if type(df) == SDF:
             df:SDF = df
-            logger.info(df.schema)
+            logger.info(pprint.pformat(df.schema))
         if logger.level == logging.DEBUG:
             logger.debug(f'Printing first 20 rows from {dataset_name}')
             logger.debug(f'{str_df_head(df)}')
