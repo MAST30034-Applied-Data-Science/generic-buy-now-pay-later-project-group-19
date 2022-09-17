@@ -22,9 +22,10 @@ logging.basicConfig(
 logging.info("Start Logging")
 
 logger = logging.getLogger('etl_logger')
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
+
 
 # create a file handler and set level to INFO
-file_handler = logging.FileHandler(filename, mode='w')
-file_handler.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler(filename, mode='w', delay = True)
+# file_handler.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)

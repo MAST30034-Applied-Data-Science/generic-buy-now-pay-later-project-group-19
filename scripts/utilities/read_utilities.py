@@ -264,10 +264,7 @@ def read_postcodes(spark: SparkSession):
     url = "https://www.matthewproctor.com/Content/postcodes/australian_postcodes.csv"
     req_data = requests.get(url).content
     postcode_df = pd.read_csv(io.StringIO(req_data.decode('utf-8')))
-    print(postcode_df.columns)
     postcode_df = postcode_df[['postcode', 'SA2_MAINCODE_2016']]
-    print(postcode_df.columns)
-    print(postcode_df.head(5))
     return spark.createDataFrame(postcode_df)\
         .withColumnRenamed('SA2_MAINCODE_2016', 'sa2_code')
 

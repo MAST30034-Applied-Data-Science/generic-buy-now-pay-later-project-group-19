@@ -46,7 +46,7 @@ def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame,
     
     return consumer_df.join(
         consumer_user_mapping_df,
-        on = 'user_id'
+        on = 'consumer_id'
     )
 
 def compute_customer_transactions(spark: SparkSession, 
