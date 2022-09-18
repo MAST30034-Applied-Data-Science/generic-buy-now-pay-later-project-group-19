@@ -6,6 +6,7 @@ TODO: Add documentation of the steps here.
 
 # Python Libraries
 from collections import defaultdict
+import logging
 import os
 import sys
 import argparse
@@ -19,11 +20,12 @@ from pyspark.sql import SparkSession, DataFrame
 # ... TODO: Add to this as necessary
 
 # Our Modules
-from utilities.log_utilities import logger
+from utilities.log_utilities import logger, file_handler
 import utilities.print_utilities as PRINT
 import utilities.read_utilities as READ
 import utilities.clean_utilities as CLEAN
 import utilities.agg_utilities as AGG
+import utilities.write_utilities as WRITE
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
@@ -50,7 +52,7 @@ def etl(spark: SparkSession, input_path:str,
 
     # read in the datasets
     PRINT.print_script_header('reading in the raw datasets')
-    data_dict = READ.read_data(spark, args.input)
+    data_dict = READ.read_data(spark, input_path)
 
     logger.debug(f'Added datasets: {data_dict.keys()}')
 
@@ -60,16 +62,21 @@ def etl(spark: SparkSession, input_path:str,
 
     # clean the data
     PRINT.print_script_header('cleaning the data')
-    data_dict = CLEAN.clean_data(spark, data_dict)
+    CLEAN.clean_data(spark, data_dict)
     PRINT.print_dataset_summary(data_dict, 
         ['transactions', 'merchants', 'merchant_tags'])
 
+    # compute aggregate tables
+    PRINT.print_script_header('aggregating the data')
+    AGG.compute_aggregates(spark, data_dict)
+    PRINT.print_dataset_summary(data_dict, 
+        ['merchant_sales', 'customer_accounts', 'customer_transactions'])
 
-#     print(
-#         PRINT.str_df_head(
-#             AGG.compute_merchant_sales(spark, data_dict)['merchant_sales']
-#         )
-#     )
+    logger.info('I will now save all the data unless the output path is None.')
+    
+    if output_path is not None:
+        PRINT.print_script_header('saving the data')
+        WRITE.write_data(data_dict, output_path)
 
     return data_dict
 
@@ -92,18 +99,31 @@ if __name__ == '__main__':
 
     # data input
     parser.add_argument('-i', '--input', 
-        default=DEFAULT_INPUT_PATH,
+        default=READ.DEFAULT_INPUT_PATH,
         help='the folder where the data is stored.')
 
     # output folder
     parser.add_argument('-o', '--output', 
-        default=DEFAULT_OUTPUT_PATH,
+        default=WRITE.DEFAULT_OUTPUT_PATH,
         help='the folder where the results are stored. Subdirectories may be created.')
 
     # ... TODO: Add to this as necessary
 
     args = parser.parse_args()
+
+    input_path = args.input
+    output_path = args.output
     
+    # apply the logger level to logger
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        file_handler.setLevel(logging.DEBUG)
+        logger.addHandler(file_handler)
+    else: 
+        logger.setLevel(logging.INFO)
+        file_handler.setLevel(logging.INFO)
+        logger.addHandler(file_handler)
+
     # print args to debug
     logger.debug(f'arguments: \n{args}')
 
@@ -124,5 +144,4 @@ if __name__ == '__main__':
     ############################################################################
     # Run the ETL Process
     ############################################################################
-    output = etl(spark, args.input, args.output)
-    
+    output = etl(spark, input_path, output_path)    
