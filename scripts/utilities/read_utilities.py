@@ -292,6 +292,11 @@ def read_census(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
         if re.search(r'sa2_code_\d{4}', colname.lower()) is not None:
             logger.debug(f'The SA2 colname is "{colname}"')
             sa2_code_colname = colname.lower()
+            
+    census_df = census_df.withColumn(
+        sa2_code_colname, 
+        census_df[sa2_code_colname].cast(IntegerType())
+    )
 
     return census_df.select([
         F.col(colname).alias(colname.lower()) for colname in census_df.columns
