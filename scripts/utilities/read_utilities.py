@@ -10,6 +10,7 @@ import requests
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.types import IntegerType
 import pandas as pd
 
 from utilities.log_utilities import logger
@@ -281,7 +282,7 @@ def read_census(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
     Returns:
         `DataFrame`: Resulting dataframe.
     """
-    census_df = spark.read.csv(f'{data_path}/{filename}')
+    census_df = spark.read.csv(f'{data_path}/{filename}', header = True)
     census_df = census_df.select([
         F.col(colname).alias(colname.lower()) for colname in census_df.columns
     ])
