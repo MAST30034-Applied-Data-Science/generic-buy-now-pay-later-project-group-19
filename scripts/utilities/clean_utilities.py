@@ -115,7 +115,8 @@ def extract_merchant_tags(spark: SparkSession,
         lambda row: extract_merchant_tag_col(row.tags, "revenue_level"), axis=1)
     merchants_df["take_rate"] = merchants_df.apply(
         lambda row: extract_merchant_tag_col(row.tags, "take_rate"), axis=1)
-
+    
+    merchants_df['take_rate'] = pd.to_numeric(merchants_df['take_rate'])
     tag_col = merchants_df["tag"].copy()
 
     preprocessor = MerchantPreprocessor()
