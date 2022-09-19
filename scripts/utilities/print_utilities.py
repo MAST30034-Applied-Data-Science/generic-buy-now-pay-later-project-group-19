@@ -69,6 +69,7 @@ def print_dataset_summary(data_dict: 'defaultdict[str]',
     """
     for dataset_name, df in data_dict.items():
         if datasets is not None and dataset_name not in datasets: continue
+        logger.info(f'Summary of {dataset_name}')
         if type(df) == SDF:
             df:SDF = df
             logger.info(pprint.pformat(df.schema))
