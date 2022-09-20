@@ -25,7 +25,7 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
         data_dict['consumers'], data_dict['consumer_user_mappings'])
     
     data_dict['merchant_consumer'] = compute_merchant_consumer(spark,
-        data_dict['transaction'])
+        data_dict['transactions'])
     
     data_dict['consumer_region'] = compute_consumer_region(spark, 
         data_dict['consumers'], data_dict['postcodes'], data_dict['consumer_user_mappings'])
@@ -50,7 +50,7 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
         data_dict['merchant_consumer'], data_dict['merchant_returning_customer'])
     
     # Join all metrics to form curated merchant dataset
-    data_dict['curated'] = data_dict['merchant'].join(
+    data_dict['curated'] = data_dict['merchants'].join(
         data_dict['merchant_summary'],
         'merchant_abn',
         'left'
