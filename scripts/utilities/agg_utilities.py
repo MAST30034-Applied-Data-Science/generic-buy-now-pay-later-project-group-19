@@ -7,6 +7,7 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 import pandas as pd
 from datetime import datetime
+from pyspark.sql.types import IntegerType
 
 # The list of any aggregation functions that I could possible need
 AGGREGATION_FUNCTIONS = {
