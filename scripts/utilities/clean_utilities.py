@@ -129,7 +129,7 @@ def extract_merchant_tags(spark: SparkSession,
 
     # Join the vectorizer with merchant data
     count_vect_df = pd.DataFrame(X.todense(), 
-        columns=vectorizer.get_feature_names())
+        columns=["_".join(col.split()) for col in vectorizer.get_feature_names()])
     data_dict['merchants'] = spark.createDataFrame(
         pd.concat([merchants_df, count_vect_df], axis=1)\
             .drop(['tags','tag'], axis=1)
