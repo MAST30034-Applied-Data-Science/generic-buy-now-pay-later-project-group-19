@@ -237,7 +237,7 @@ def compute_merchant_metric(spark: SparkSession, merchant_sales: DataFrame,
     
     # Group first to reduce the table size before joining
     merchant_daily_sales = merchant_sales.groupby('merchant_abn').agg(
-        F.sum('sales_revenue').alias('tot_revenue'),
+        F.sum('sales_revenue').alias('sales_revenue'),
         F.sum('no_orders').alias('no_orders'),
         (F.sum('sales_revenue') / num_days).alias('avg_daily_rev'),
         (F.sum('sales_revenue') / F.sum('no_orders')).alias('avg_value_per_order'),
