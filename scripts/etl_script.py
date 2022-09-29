@@ -6,6 +6,7 @@ TODO: Add documentation of the steps here.
 
 # Python Libraries
 from collections import defaultdict
+import logging
 import os
 import sys
 import argparse
@@ -19,7 +20,7 @@ from pyspark.sql import SparkSession, DataFrame
 # ... TODO: Add to this as necessary
 
 # Our Modules
-from utilities.log_utilities import logger
+from utilities.log_utilities import logger, file_handler
 import utilities.print_utilities as PRINT
 import utilities.read_utilities as READ
 import utilities.clean_utilities as CLEAN
@@ -65,16 +66,16 @@ def etl(spark: SparkSession, input_path:str,
     PRINT.print_dataset_summary(data_dict, 
         ['transactions', 'merchants', 'merchant_tags'])
 
+    # compute aggregate tables
+    PRINT.print_script_header('aggregating the data')
+    AGG.compute_aggregates(spark, data_dict)
+    PRINT.print_dataset_summary(data_dict, 
+        ['merchant_sales', 'customer_accounts', 'customer_transactions'])
 
-    # print(
-    #     PRINT.str_df_head(
-    #         AGG.compute_merchant_sales(spark, data_dict)['merchant_sales']
-    #     )
-    # )
-
-    logger.warning('I will now save all the data unless output path is None.')
+    logger.info('I will now save all the data unless the output path is None.')
     
     if output_path is not None:
+        PRINT.print_script_header('saving the data')
         WRITE.write_data(data_dict, output_path)
 
     return data_dict
@@ -113,6 +114,16 @@ if __name__ == '__main__':
     input_path = args.input
     output_path = args.output
     
+    # apply the logger level to logger
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        file_handler.setLevel(logging.DEBUG)
+        logger.addHandler(file_handler)
+    else: 
+        logger.setLevel(logging.INFO)
+        file_handler.setLevel(logging.INFO)
+        logger.addHandler(file_handler)
+
     # print args to debug
     logger.debug(f'arguments: \n{args}')
 
