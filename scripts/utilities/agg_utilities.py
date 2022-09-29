@@ -181,7 +181,7 @@ def compute_merchant_customer_income(spark: SparkSession, merchant_consumer: Dat
         ).groupby(
             'merchant_abn'
         ).agg(
-            F.mean(F.col('median_weekly_income')).alias('median_customer_income')
+            F.mean('median_weekly_income').alias('median_customer_income')
         )
 
 def compute_returning_customer(spark: SparkSession, 
@@ -195,8 +195,8 @@ def compute_returning_customer(spark: SparkSession,
                 ).alias(
                     'returning_customer'
                 ),
-            F.mean(F.col('dollar_spent')).alias('mean_spending'),
-            F.stddev(F.col('dollar_spent')).alias('std_spending')
+            F.mean('dollar_spent').alias('mean_spending'),
+            F.stddev('dollar_spent').alias('std_spending')
         )
 
 
@@ -226,8 +226,8 @@ def compute_merchant_metric(spark: SparkSession, merchant_sales: DataFrame,
     
     
     # This part is taking a while 
-    date_range = merchant_sales.select(F.min(F.col("order_datetime")), 
-                                       F.max(F.col("order_datetime"))
+    date_range = merchant_sales.select(F.min("order_datetime"), 
+                                       F.max("order_datetime")
                                       ).first()
     
     min_date, max_date = (datetime.strptime(date_range[0], "%Y-%m-%d"), 
@@ -237,12 +237,14 @@ def compute_merchant_metric(spark: SparkSession, merchant_sales: DataFrame,
     
     # Group first to reduce the table size before joining
     merchant_daily_sales = merchant_sales.groupby('merchant_abn').agg(
-        (F.sum(F.col('sales_revenue')) / num_days).alias('avg_daily_rev'),
-        (F.sum(F.col('sales_revenue')) / F.sum(F.col('no_orders'))).alias('avg_value_per_order'),
-        (F.sum(F.col('no_orders')) / num_days).alias('avg_daily_order')
+        F.sum('sales_revenue').alias('tot_revenue'),
+        F.sum('no_orders').alias('no_orders'),
+        (F.sum('sales_revenue') / num_days).alias('avg_daily_rev'),
+        (F.sum('sales_revenue') / F.sum('no_orders')).alias('avg_value_per_order'),
+        (F.sum('no_orders') / num_days).alias('avg_daily_order')
     )
     
-    merchant_daily_sales = merchant.join(
+    merchant_daily_sales = merchant_sales.join(
         merchant_daily_sales, 
         on=["merchant_abn"],
         how='left'
