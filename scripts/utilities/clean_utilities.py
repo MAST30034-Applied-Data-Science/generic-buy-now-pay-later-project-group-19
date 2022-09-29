@@ -115,7 +115,8 @@ def extract_merchant_tags(spark: SparkSession,
         lambda row: extract_merchant_tag_col(row.tags, "revenue_level"), axis=1)
     merchants_df["take_rate"] = merchants_df.apply(
         lambda row: extract_merchant_tag_col(row.tags, "take_rate"), axis=1)
-
+    
+    merchants_df['take_rate'] = pd.to_numeric(merchants_df['take_rate'])
     tag_col = merchants_df["tag"].copy()
 
     preprocessor = MerchantPreprocessor()
@@ -128,7 +129,7 @@ def extract_merchant_tags(spark: SparkSession,
 
     # Join the vectorizer with merchant data
     count_vect_df = pd.DataFrame(X.todense(), 
-        columns=vectorizer.get_feature_names())
+        columns=["_".join(col.split()) for col in vectorizer.get_feature_names()])
     data_dict['merchants'] = spark.createDataFrame(
         pd.concat([merchants_df, count_vect_df], axis=1)\
             .drop(['tags','tag'], axis=1)
@@ -188,7 +189,7 @@ class MerchantPreprocessor:
             #correct spelling
             new_tag = [self.__correct_spelling__(text) for text in new_tag ]
         
-            #stop word removal
+            # stop word removal
             new_tag = [text for text in new_tag if text not in self.stopwords]
 
             #lemmatization

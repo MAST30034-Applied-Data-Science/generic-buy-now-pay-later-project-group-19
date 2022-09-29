@@ -53,8 +53,8 @@ def print_script_header(header: str):
     """
     logger.info(
         f'''
-        === {header.upper()}
-        {50 * '='}
+    === {header.upper()}
+    {50 * '='}
         '''
     )
 
