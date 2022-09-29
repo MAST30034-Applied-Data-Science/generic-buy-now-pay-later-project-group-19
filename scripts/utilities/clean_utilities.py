@@ -189,7 +189,7 @@ class MerchantPreprocessor:
             #correct spelling
             new_tag = [self.__correct_spelling__(text) for text in new_tag ]
         
-            stop word removal
+            # stop word removal
             new_tag = [text for text in new_tag if text not in self.stopwords]
 
             #lemmatization

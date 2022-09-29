@@ -2,12 +2,12 @@
 TODO: commenting on this
 '''
 from collections import defaultdict
+from datetime import datetime
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
-import pandas as pd
-from datetime import datetime
 from pyspark.sql.types import IntegerType
+import pandas as pd
 
 # The list of any aggregation functions that I could possible need
 AGGREGATION_FUNCTIONS = {
@@ -51,26 +51,15 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
         data_dict['merchant_consumer'], data_dict['merchant_returning_customer'])
     
     # Join all metrics to form curated merchant dataset
-    data_dict['curated'] = data_dict['merchant_summary'].join(
-        data_dict['merchant_region_count'],
-        'merchant_abn',
-        'left'
-    ).join(
+    data_dict['final_merchant_statistics'] = compute_final_merchant_statistics(
+        spark, data_dict['merchant_summary'],
+        data_dict['merchant_region_count'], 
         data_dict['merchant_customer_income'],
-        'merchant_abn',
-        'left'
-    ).join(
         data_dict['merchant_returning_customer'],
-        'merchant_abn',
-        'left'
-    ).join(
-        data_dict['merchant_vip_customer'],
-        'merchant_abn',
-        'left'
+        data_dict['merchant_vip_customer']
     )
-        
-                                                                            
-    return data_dict
+                                                             
+    return data_dict # redundant, but return it just in case
 
 def compute_merchant_sales(spark: SparkSession, transaction_df: DataFrame, 
         merchant_df: DataFrame) -> 'defaultdict[str]':
@@ -252,37 +241,28 @@ def compute_merchant_metric(spark: SparkSession, merchant_sales: DataFrame,
         F.col('avg_value_per_order') * (F.col('take_rate')/100)
     )
 
-# def compute_sales_by_region():
-#     print('')
+def compute_final_merchant_statistics(spark: SparkSession, 
+        merchant_summary: DataFrame, 
+        merchant_region_count: DataFrame, 
+        merchant_customer_income: DataFrame, 
+        merchant_returning_customer: DataFrame,
+        merchant_vip_customer: DataFrame) -> DataFrame:
 
-def group_and_aggregate(df: DataFrame, group_cols: "list[str]", agg_cols: dict) -> DataFrame:
-    """ Group a dataset and aggregate it using the chosen functions
-
-    Args:
-        df (`DataFrame`): The dataset to aggregate. 
-        pop_df (`DataFrame`): The dataframe of borough populations per year.
-        group_cols (list[str]): The columns to group the dataset by.
-        agg_cols (dict): The aggregation functions used.
-
-    Returns:
-        `DataFrame`: The aggregated dataframe
-    """
-
-    # group using the defined columns
-    grouped_df = df.groupBy(group_cols)
-    
-    # define the list of aggregated columns to add
-    column_aggregates = []
-
-    # iterate through the defined aggregations,
-    # perform the aggregation and name the columsn accordingly
-    for colname, func_types in agg_cols.items():
-        for func_type in func_types:
-            prefix, func = AGGREGATION_FUNCTIONS[func_type]
-
-            column_aggregates.append(
-                func(colname).alias(f'{prefix}{colname}')
-            )
-
-    # return the grouped data with aggregations
-    return grouped_df.agg(*column_aggregates)
+    # Join all metrics to form curated merchant dataset
+    return merchant_summary.join(
+        merchant_region_count,
+        'merchant_abn',
+        'left'
+    ).join(
+        merchant_customer_income,
+        'merchant_abn',
+        'left'
+    ).join(
+        merchant_returning_customer,
+        'merchant_abn',
+        'left'
+    ).join(
+        merchant_vip_customer,
+        'merchant_abn',
+        'left'
+    )
