@@ -28,7 +28,8 @@ def add_column_rank(df: DataFrame, colname: str, ascending: bool = False,
     df[rank_colname] = df[colname].rank(
         method='average',
         ascending=ascending,
-        pct=pct 
+        pct=pct,
+        na_option='bottom'
     )
     return df
 
