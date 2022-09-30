@@ -26,38 +26,38 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
     data_dict['customer_accounts'] = compute_customer_accounts(spark,
         data_dict['consumers'], data_dict['consumer_user_mappings'])
     
-    data_dict['merchant_consumer'] = compute_merchant_consumer(spark,
+    data_dict['merchant_consumers'] = compute_merchant_consumers(spark,
         data_dict['transactions'])
     
-    data_dict['consumer_region'] = compute_consumer_region(spark, 
+    data_dict['consumer_regions'] = compute_consumer_regions(spark, 
         data_dict['consumers'], data_dict['postcodes'], data_dict['consumer_user_mappings'])
     
-    data_dict['consumer_region_income'] = compute_region_income(spark, 
-        data_dict['consumer_region'], data_dict['census'])
+    data_dict['consumer_region_incomes'] = compute_region_incomes(spark, 
+        data_dict['consumer_regions'], data_dict['census'])
     
     # Metrics aggregates to be joined (the important part)
-    data_dict['merchant_summary'] = compute_merchant_metric(spark, 
+    data_dict['merchant_metrics'] = compute_merchant_metrics(spark, 
         data_dict['merchant_sales'], data_dict['merchants'])
     
-    data_dict['merchant_region_count'] = compute_merchant_region(spark,
-        data_dict['merchant_consumer'], data_dict['consumer_region'])
+    data_dict['merchant_region_counts'] = compute_merchant_regions(spark,
+        data_dict['merchant_consumers'], data_dict['consumer_regions'])
 
-    data_dict['merchant_customer_income'] = compute_merchant_customer_income(spark,
-        data_dict['merchant_consumer'], data_dict['consumer_region_income'])
+    data_dict['merchant_customer_incomes'] = compute_merchant_customer_incomes(spark,
+        data_dict['merchant_consumers'], data_dict['consumer_region_incomes'])
     
-    data_dict['merchant_returning_customer'] = compute_returning_customer(spark,
-        data_dict['merchant_consumer'])
+    data_dict['merchant_returning_customers'] = compute_returning_customers(spark,
+        data_dict['merchant_consumers'])
     
-    data_dict['merchant_vip_customer'] = compute_vip_customer(spark,
-        data_dict['merchant_consumer'], data_dict['merchant_returning_customer'])
+    data_dict['merchant_vip_customers'] = compute_vip_customers(spark,
+        data_dict['merchant_consumers'], data_dict['merchant_returning_customers'])
     
     # Join all metrics to form curated merchant dataset
     data_dict['final_merchant_statistics'] = compute_final_merchant_statistics(
-        spark, data_dict['merchant_summary'],
-        data_dict['merchant_region_count'], 
-        data_dict['merchant_customer_income'],
-        data_dict['merchant_returning_customer'],
-        data_dict['merchant_vip_customer']
+        spark, data_dict['merchant_metrics'],
+        data_dict['merchant_region_counts'], 
+        data_dict['merchant_customer_incomes'],
+        data_dict['merchant_returning_customers'],
+        data_dict['merchant_vip_customers']
     )
                                                              
     return data_dict # redundant, but return it just in case
@@ -91,7 +91,7 @@ def compute_customer_transactions(spark: SparkSession,
     )
 
 
-def compute_merchant_consumer(spark: SparkSession, transaction_df: DataFrame) -> DataFrame:
+def compute_merchant_consumers(spark: SparkSession, transaction_df: DataFrame) -> DataFrame:
     return transaction_df \
         .groupby(['merchant_abn', 'user_id']) \
         .agg({'dollar_value':'sum', 'order_id':'count'}) \
@@ -99,13 +99,13 @@ def compute_merchant_consumer(spark: SparkSession, transaction_df: DataFrame) ->
         .withColumnRenamed('count(order_id)', 'no_orders')
 
 
-def compute_consumer_region(spark: SparkSession, consumers: DataFrame, 
-                            postcodes: DataFrame, user_mapping: DataFrame) -> DataFrame:
+def compute_consumer_regions(spark: SparkSession, consumer_df: DataFrame, 
+                            postcode_df: DataFrame, user_mapping: DataFrame) -> DataFrame:
     
-    return consumers.select(
+    return consumer_df.select(
             ['consumer_id','postcode']
         ).join(
-            postcodes, 
+            postcode_df, 
             'postcode', 
             'left'
         ).withColumn(
@@ -117,20 +117,37 @@ def compute_consumer_region(spark: SparkSession, consumers: DataFrame,
             'left'
         )
 
-
-def compute_region_income(spark: SparkSession, consumer_region: DataFrame,
-                         census: DataFrame) -> DataFrame:
+# Join user region with region median income, 
+# if user has multiple SA2 region, find their mean weekly income
+def compute_region_incomes(spark: SparkSession, consumer_region_df: DataFrame,
+                         census_df: DataFrame) -> DataFrame:
     
     # Median imputation for user with missing weekly income
     imputer = Imputer(
         inputCols = ["median_weekly_income"],
         outputCols = ["median_weekly_income"]
     ).setStrategy("median")
+
+    # return consumer_region_df.join(
+    #             census_df.select([
+    #                 'sa2_code',
+    #                 'median_tot_prsnl_inc_weekly'
+    #             ]), 
+    #             'sa2_code',
+    #             'left'
+    #         ).groupby(
+    #             'user_id'
+    #         ).agg(
+    #             {'median_tot_prsnl_inc_weekly':'mean'}
+    #         ).withColumnRenamed(
+    #             'avg(median_tot_prsnl_inc_weekly)', 
+    #             'median_weekly_income'
+    #         )
     
     # Join user region with region median income, 
     # if user has multiple SA2 region, find their mean weekly income
-    consumer_region_income = consumer_region.join(
-        census.select([
+    consumer_region_incomes_df = consumer_region_df.join(
+        census_df.select([
             'sa2_code',
             'median_tot_prsnl_inc_weekly'
         ]), 
@@ -146,20 +163,20 @@ def compute_region_income(spark: SparkSession, consumer_region: DataFrame,
     )
     
     return imputer.fit(
-        consumer_region_income
+        consumer_region_incomes_df
     ).transform(
-        consumer_region_income
+        consumer_region_incomes_df
     )
 
     
-def compute_merchant_region(spark: SparkSession, merchant_consumer: DataFrame,
-                           consumer_region: DataFrame) -> DataFrame:
+def compute_merchant_regions(spark: SparkSession, merchant_consumer_df: DataFrame,
+                           consumer_region_df: DataFrame) -> DataFrame:
     
-    return merchant_consumer.select([
+    return merchant_consumer_df.select([
             'merchant_abn', 
             'user_id'
         ]).join(
-            consumer_region, 
+            consumer_region_df, 
             'user_id', 
             'left'
         ).groupby(
@@ -168,26 +185,26 @@ def compute_merchant_region(spark: SparkSession, merchant_consumer: DataFrame,
             F.countDistinct('sa2_code').alias('sa2_region_count')
         )
 
-def compute_merchant_customer_income(spark: SparkSession, merchant_consumer: DataFrame,
-                           consumer_region_income: DataFrame) -> DataFrame:
+def compute_merchant_customer_incomes(spark: SparkSession, merchant_consumer_df: DataFrame,
+                           consumer_region_income_df: DataFrame) -> DataFrame:
     
-    return merchant_consumer.select([
+    return merchant_consumer_df.select([
             'merchant_abn', 
             'user_id'
         ]).join(
-            consumer_region_income, 
+            consumer_region_income_df, 
             'user_id', 
             'left'
         ).groupby(
             'merchant_abn'
         ).agg(
-            F.mean(F.col('median_weekly_income')).alias('median_customer_income')
+            F.mean('median_weekly_income').alias('median_customer_income')
         )
 
-def compute_returning_customer(spark: SparkSession, 
-                               merchant_consumer: DataFrame) -> DataFrame:
+def compute_returning_customers(spark: SparkSession, 
+                               merchant_consumer_df: DataFrame) -> DataFrame:
     
-    return merchant_consumer.groupby(
+    return merchant_consumer_df.groupby(
             'merchant_abn'
         ).agg(
             F.count(
@@ -195,39 +212,39 @@ def compute_returning_customer(spark: SparkSession,
                 ).alias(
                     'returning_customer'
                 ),
-            F.mean(F.col('dollar_spent')).alias('mean_spending'),
-            F.stddev(F.col('dollar_spent')).alias('std_spending')
+            F.mean('dollar_spent').alias('mean_spending'),
+            F.stddev('dollar_spent').alias('std_spending')
         )
 
 
-def compute_vip_customer(spark: SparkSession, merchant_consumer: DataFrame,
-                        merchant_statistics: DataFrame) -> DataFrame:
+def compute_vip_customers(spark: SparkSession, merchant_consumer_df: DataFrame,
+                        merchant_returning_customer_df: DataFrame) -> DataFrame:
 
-    return merchant_consumer.join(
-        merchant_statistics, 
-        'merchant_abn',
-        'left'
-    ).groupby(
-        'merchant_abn'
-    ).agg(
-        F.count(
-            F.when(
-                (F.col('dollar_spent') > 100) &
-                (F.col('dollar_spent') > F.col('mean_spending') + 2 * F.col('std_spending')),
-                True
+    return merchant_consumer_df.join(
+            merchant_returning_customer_df, 
+            'merchant_abn',
+            'left'
+        ).groupby(
+            'merchant_abn'
+        ).agg(
+            F.count(
+                F.when(
+                    (F.col('dollar_spent') > 100) &
+                    (F.col('dollar_spent') > F.col('mean_spending') + 2 * F.col('std_spending')),
+                    True
+                )
+            ).alias(
+                'vip_customer'
             )
-        ).alias(
-            'vip_customer'
         )
-    )
 
-def compute_merchant_metric(spark: SparkSession, merchant_sales: DataFrame,
-                           merchant: DataFrame) -> DataFrame:
+def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
+                           merchants: DataFrame) -> DataFrame:
     
     
     # This part is taking a while 
-    date_range = merchant_sales.select(F.min(F.col("order_datetime")), 
-                                       F.max(F.col("order_datetime"))
+    date_range = merchant_sales.select(F.min("order_datetime"), 
+                                       F.max("order_datetime")
                                       ).first()
     
     min_date, max_date = (datetime.strptime(date_range[0], "%Y-%m-%d"), 
@@ -237,47 +254,49 @@ def compute_merchant_metric(spark: SparkSession, merchant_sales: DataFrame,
     
     # Group first to reduce the table size before joining
     merchant_daily_sales = merchant_sales.groupby('merchant_abn').agg(
-        (F.sum(F.col('sales_revenue')) / num_days).alias('avg_daily_rev'),
-        (F.sum(F.col('sales_revenue')) / F.sum(F.col('no_orders'))).alias('avg_value_per_order'),
-        (F.sum(F.col('no_orders')) / num_days).alias('avg_daily_order')
+        F.sum('sales_revenue').alias('sales_revenue'),
+        F.sum('no_orders').alias('no_orders'),
+        (F.sum('sales_revenue') / num_days).alias('avg_daily_rev'),
+        (F.sum('sales_revenue') / F.sum('no_orders')).alias('avg_value_per_order'),
+        (F.sum('no_orders') / num_days).alias('avg_daily_order')
     )
     
-    merchant_daily_sales = merchant.join(
+    merchant_daily_sales = merchants.join(
         merchant_daily_sales, 
         on=["merchant_abn"],
         how='left'
     )
-    
+        
     return merchant_daily_sales.withColumn(
-        'avg_daily_commission', 
-        F.col('avg_daily_rev') * (F.col('take_rate')/100)
-    ).withColumn(
-        'avg_commission_per_order',
-        F.col('avg_value_per_order') * (F.col('take_rate')/100)
-    )
+            'avg_daily_commission', 
+            F.col('avg_daily_rev') * (F.col('take_rate')/100)
+        ).withColumn(
+            'avg_commission_per_order',
+            F.col('avg_value_per_order') * (F.col('take_rate')/100)
+        )
 
 def compute_final_merchant_statistics(spark: SparkSession, 
-        merchant_summary: DataFrame, 
-        merchant_region_count: DataFrame, 
-        merchant_customer_income: DataFrame, 
-        merchant_returning_customer: DataFrame,
-        merchant_vip_customer: DataFrame) -> DataFrame:
+        merchant_metrics: DataFrame, 
+        merchant_region_counts: DataFrame, 
+        merchant_customer_incomes: DataFrame, 
+        merchant_returning_customers: DataFrame,
+        merchant_vip_customers: DataFrame) -> DataFrame:
 
     # Join all metrics to form curated merchant dataset
-    return merchant_summary.join(
-        merchant_region_count,
-        'merchant_abn',
-        'left'
-    ).join(
-        merchant_customer_income,
-        'merchant_abn',
-        'left'
-    ).join(
-        merchant_returning_customer,
-        'merchant_abn',
-        'left'
-    ).join(
-        merchant_vip_customer,
-        'merchant_abn',
-        'left'
-    )
+    return merchant_metrics.join(
+            merchant_region_counts,
+            'merchant_abn',
+            'left'
+        ).join(
+            merchant_customer_incomes,
+            'merchant_abn',
+            'left'
+        ).join(
+            merchant_returning_customers,
+            'merchant_abn',
+            'left'
+        ).join(
+            merchant_vip_customers,
+            'merchant_abn',
+            'left'
+        )
