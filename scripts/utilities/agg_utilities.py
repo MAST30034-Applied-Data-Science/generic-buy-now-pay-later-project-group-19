@@ -10,6 +10,10 @@ from pyspark.sql.types import IntegerType
 from pyspark.ml.feature import Imputer
 import pandas as pd
 
+from utilities.print_utilities import print_dataset_summary
+from utilities.clean_utilities import remove_nan_values
+from utilities.log_utilities import logger
+
 # The list of any aggregation functions that I could possible need
 AGGREGATION_FUNCTIONS = {
     'total': ('tot_', F.sum),
@@ -22,7 +26,7 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
     # Helper aggregates
     data_dict['merchant_sales'] = compute_merchant_sales(spark,
         data_dict['transactions'], data_dict['merchants'])
-    
+
     data_dict['customer_accounts'] = compute_customer_accounts(spark,
         data_dict['consumers'], data_dict['consumer_user_mappings'])
     
@@ -59,12 +63,14 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
         data_dict['merchant_returning_customers'],
         data_dict['merchant_vip_customers']
     )
-                                                             
+
     return data_dict # redundant, but return it just in case
 
 def compute_merchant_sales(spark: SparkSession, transaction_df: DataFrame, 
         merchant_df: DataFrame) -> 'defaultdict[str]':
     # TODO:Commenting here
+
+
 
     return transaction_df \
         .groupby('merchant_abn', 'order_datetime') \
@@ -143,6 +149,22 @@ def compute_region_incomes(spark: SparkSession, consumer_region_df: DataFrame,
     #             'avg(median_tot_prsnl_inc_weekly)', 
     #             'median_weekly_income'
     #         )
+
+    return consumer_region_df.join(
+                census_df.select([
+                    'sa2_code',
+                    'median_tot_prsnl_inc_weekly'
+                ]), 
+                'sa2_code',
+                'left'
+            ).groupby(
+                'user_id'
+            ).agg(
+                {'median_tot_prsnl_inc_weekly':'mean'}
+            ).withColumnRenamed(
+                'avg(median_tot_prsnl_inc_weekly)', 
+                'median_weekly_income'
+            )
     
     # Join user region with region median income, 
     # if user has multiple SA2 region, find their mean weekly income
@@ -251,15 +273,19 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
                           datetime.strptime(date_range[1], "%Y-%m-%d"))
     
     num_days = (max_date - min_date).days
+
+
     
     # Group first to reduce the table size before joining
-    merchant_daily_sales = merchant_sales.groupby('merchant_abn').agg(
-        F.sum('sales_revenue').alias('sales_revenue'),
-        F.sum('no_orders').alias('no_orders'),
-        (F.sum('sales_revenue') / num_days).alias('avg_daily_rev'),
-        (F.sum('sales_revenue') / F.sum('no_orders')).alias('avg_value_per_order'),
-        (F.sum('no_orders') / num_days).alias('avg_daily_order')
-    )
+    merchant_daily_sales = merchant_sales \
+        .groupby('merchant_abn') \
+        .agg(
+            F.sum('sales_revenue').alias('sales_revenue'),
+            F.sum('no_orders').alias('no_orders'),
+            (F.sum('sales_revenue') / num_days).alias('avg_daily_rev'),
+            (F.sum('sales_revenue') / F.sum('no_orders')).alias('avg_value_per_order'),
+            (F.sum('no_orders') / num_days).alias('avg_daily_order')
+        )
     
     merchant_daily_sales = merchants.join(
         merchant_daily_sales, 
@@ -267,13 +293,13 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
         how='left'
     )
         
-    return merchant_daily_sales.withColumn(
-            'avg_daily_commission', 
-            F.col('avg_daily_rev') * (F.col('take_rate')/100)
-        ).withColumn(
-            'avg_commission_per_order',
-            F.col('avg_value_per_order') * (F.col('take_rate')/100)
-        )
+    return merchant_daily_sales.withColumns(
+        {
+            'avg_daily_commission': F.col('avg_daily_rev') * (F.col('take_rate')/100),
+            'avg_commission_per_order': F.col('avg_value_per_order') * (F.col('take_rate')/100),
+            'overall_commission': F.col('sales_revenue') * (F.col('take_rate')/100),
+        }
+    )
 
 def compute_final_merchant_statistics(spark: SparkSession, 
         merchant_metrics: DataFrame, 
