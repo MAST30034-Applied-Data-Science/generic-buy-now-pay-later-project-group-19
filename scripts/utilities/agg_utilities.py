@@ -7,6 +7,7 @@ from datetime import datetime
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType
+from pyspark.ml.feature import Imputer
 import pandas as pd
 
 # The list of any aggregation functions that I could possible need
@@ -120,22 +121,36 @@ def compute_consumer_region(spark: SparkSession, consumers: DataFrame,
 def compute_region_income(spark: SparkSession, consumer_region: DataFrame,
                          census: DataFrame) -> DataFrame:
     
-    return consumer_region.join(
-                census.select([
-                    'sa2_code',
-                    'median_tot_prsnl_inc_weekly'
-                ]), 
-                'sa2_code',
-                'left'
-            ).groupby(
-                'user_id'
-            ).agg(
-                {'median_tot_prsnl_inc_weekly':'mean'}
-            ).withColumnRenamed(
-                'avg(median_tot_prsnl_inc_weekly)', 
-                'median_weekly_income'
-            )
+    # Median imputation for user with missing weekly income
+    imputer = Imputer(
+        inputCols = ["median_weekly_income"],
+        outputCols = ["median_weekly_income"]
+    ).setStrategy("median")
     
+    # Join user region with region median income, 
+    # if user has multiple SA2 region, find their mean weekly income
+    consumer_region_income = consumer_region.join(
+        census.select([
+            'sa2_code',
+            'median_tot_prsnl_inc_weekly'
+        ]), 
+        'sa2_code',
+        'left'
+    ).groupby(
+        'user_id'
+    ).agg(
+        {'median_tot_prsnl_inc_weekly':'mean'}
+    ).withColumnRenamed(
+        'avg(median_tot_prsnl_inc_weekly)', 
+        'median_weekly_income'
+    )
+    
+    return imputer.fit(
+        consumer_region_income
+    ).transform(
+        consumer_region_income
+    )
+
     
 def compute_merchant_region(spark: SparkSession, merchant_consumer: DataFrame,
                            consumer_region: DataFrame) -> DataFrame:
