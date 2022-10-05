@@ -23,7 +23,7 @@ def add_column_rank(df: DataFrame, colname: str, ascending: bool = False,
     Returns:
         `DataFrame`: The modified Pandas `DataFrame` containing the new rank column
     """
-    rank_colname = f'{colname}_{rank_type}'
+    rank_colname = f'{rank_type}_{colname}'
     if rank_type == 'minmax':
         df[rank_colname] = min_max_scale(df[colname])
         if not ascending:
@@ -52,7 +52,7 @@ def average_rank(df: DataFrame, colnames: 'list[str]',
         weights = np.ones((len(colnames), 1)) / n
 
     rank_colnames = [
-        f'{cn}_{rank_type}' for cn in colnames
+        f'{rank_type}_{cn}' for cn in colnames
     ]
 
     df['average_rank'] = np.matrix(df[rank_colnames]) @ weights
