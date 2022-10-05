@@ -11,7 +11,6 @@ from pyspark.ml.feature import Imputer
 import pandas as pd
 
 from utilities.print_utilities import print_dataset_summary
-from utilities.clean_utilities import remove_nan_values
 from utilities.log_utilities import logger
 
 # The list of any aggregation functions that I could possible need
@@ -133,38 +132,6 @@ def compute_region_incomes(spark: SparkSession, consumer_region_df: DataFrame,
         inputCols = ["median_weekly_income"],
         outputCols = ["median_weekly_income"]
     ).setStrategy("median")
-
-    # return consumer_region_df.join(
-    #             census_df.select([
-    #                 'sa2_code',
-    #                 'median_tot_prsnl_inc_weekly'
-    #             ]), 
-    #             'sa2_code',
-    #             'left'
-    #         ).groupby(
-    #             'user_id'
-    #         ).agg(
-    #             {'median_tot_prsnl_inc_weekly':'mean'}
-    #         ).withColumnRenamed(
-    #             'avg(median_tot_prsnl_inc_weekly)', 
-    #             'median_weekly_income'
-    #         )
-
-    return consumer_region_df.join(
-                census_df.select([
-                    'sa2_code',
-                    'median_tot_prsnl_inc_weekly'
-                ]), 
-                'sa2_code',
-                'left'
-            ).groupby(
-                'user_id'
-            ).agg(
-                {'median_tot_prsnl_inc_weekly':'mean'}
-            ).withColumnRenamed(
-                'avg(median_tot_prsnl_inc_weekly)', 
-                'median_weekly_income'
-            )
     
     # Join user region with region median income, 
     # if user has multiple SA2 region, find their mean weekly income
