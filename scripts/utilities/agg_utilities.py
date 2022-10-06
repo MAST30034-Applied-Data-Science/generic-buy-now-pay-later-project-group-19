@@ -10,6 +10,7 @@ from pyspark.sql.types import IntegerType
 from pyspark.ml.feature import Imputer
 import pandas as pd
 
+from utilities.model_utilities import predict_fraud
 from utilities.print_utilities import print_dataset_summary
 from utilities.log_utilities import logger
 
@@ -22,9 +23,13 @@ AGGREGATION_FUNCTIONS = {
 
 def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
     
-    # Helper aggregates
+    # Staging aggregates
+    data_dict['transactions_with_fraud'] = compute_transactions_with_fraud(
+        spark, data_dict['transactions']
+    )
+    
     data_dict['merchant_sales'] = compute_merchant_sales(spark,
-        data_dict['transactions'], data_dict['merchants'])
+        data_dict['transactions_with_fraud'], data_dict['merchants'])
 
     data_dict['customer_accounts'] = compute_customer_accounts(spark,
         data_dict['consumers'], data_dict['consumer_user_mappings'])
@@ -65,19 +70,55 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
 
     return data_dict # redundant, but return it just in case
 
-def compute_merchant_sales(spark: SparkSession, transaction_df: DataFrame, 
+
+def compute_daily_user_transactions(spark: SparkSession,
+        transactions_df: DataFrame) -> DataFrame:
+    
+    return transactions_df.groupby(['user_id', 'order_datetime']) \
+        .agg(
+            F.sum('dollar_value').alias('total_value'),
+            F.count('order_id').alias('no_orders'),
+            F.mean('dollar_value').alias('avg_order_value')
+        )
+
+def compute_transactions_with_fraud(spark: SparkSession,
+        transactions_df:DataFrame) -> DataFrame:
+
+    # TODO: add model path
+    daily_user_transaction_df = compute_daily_user_transactions(
+        spark, transactions_df)
+    daily_user_transaction_fraud_df = predict_fraud(daily_user_transaction_df)
+    # daily_user_merchant_df = transactions \
+    #     .groupby(['merchant_abn','order_datetime','user_id']) \
+    #     .agg(
+    #         F.sum('dollar_value').alias('total_value'),
+    #         F.count('order_id').alias('no_orders'),
+    #         F.mean('dollar_value').alias('avg_order_value')
+    #     )
+    return transactions_df.join(
+        daily_user_transaction_fraud_df,
+        on = ['order_datetime','user_id'],
+        how = 'leftouter'
+    ).withColumn(
+        'discounted_value',
+        F.col('fraud_prob') * F.col('dollar_value'),
+    )
+    
+def compute_merchant_sales(spark: SparkSession, 
+        transaction_with_fraud_df: DataFrame, 
         merchant_df: DataFrame) -> 'defaultdict[str]':
     # TODO:Commenting here
 
-
-
-    return transaction_df \
+    return transaction_with_fraud_df \
         .groupby('merchant_abn', 'order_datetime') \
-        .agg({'dollar_value':'sum', 'order_id':'count'}) \
-        .withColumnRenamed('sum(dollar_value)', 'sales_revenue') \
-        .withColumnRenamed('count(order_id)', 'no_orders')
+        .agg(
+            F.sum('dollar_value').alias('sales_revenue'),
+            F.count('order_id').alias('no_orders'),
+            F.sum('discounted_value').alias('discounted_sales_revenue'),
+            F.sum('no_fraudulent_orders').alias('no_fraudulent_orders'),
+            F.mean('fraud_prob').alias('average_fraud_prob')
+        )
     
-
 def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame, 
         consumer_user_mapping_df: DataFrame) -> DataFrame:
     
@@ -240,18 +281,21 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
                           datetime.strptime(date_range[1], "%Y-%m-%d"))
     
     num_days = (max_date - min_date).days
-
-
     
     # Group first to reduce the table size before joining
     merchant_daily_sales = merchant_sales \
         .groupby('merchant_abn') \
         .agg(
             F.sum('sales_revenue').alias('sales_revenue'),
+            F.sum('discounted_sales_revenue').alias('discounted_sales_revenue'),
             F.sum('no_orders').alias('no_orders'),
+            F.sum('no_fraudulent_orders').alias('no_fraudulent_orders'),
             (F.sum('sales_revenue') / num_days).alias('avg_daily_rev'),
+            (F.sum('discounted_sales_revenue') / num_days).alias('discounted_avg_daily_rev'),
             (F.sum('sales_revenue') / F.sum('no_orders')).alias('avg_value_per_order'),
+            (F.sum('discounted_sales_revenue') / F.sum('no_orders')).alias('discounted_avg_value_per_order'),
             (F.sum('no_orders') / num_days).alias('avg_daily_order')
+            (F.sum('no_fraudulent_orders') / num_days).alias('avg_daily_fraudulent_order')
         )
     
     merchant_daily_sales = merchants.join(
@@ -263,8 +307,12 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
     return merchant_daily_sales.withColumns(
         {
             'avg_daily_commission': F.col('avg_daily_rev') * (F.col('take_rate')/100),
+            'discounted_avg_daily_commission': F.col('discounted_avg_daily_rev') * (F.col('take_rate')/100),
             'avg_commission_per_order': F.col('avg_value_per_order') * (F.col('take_rate')/100),
+            'discounted_avg_commission_per_order': F.col('discounted_avg_value_per_order') * (F.col('take_rate')/100),
             'overall_commission': F.col('sales_revenue') * (F.col('take_rate')/100),
+            'discounted_overall_commission': F.col('discounted_sales_revenue') * (F.col('take_rate')/100),
+            'overall_fraud_rate': F.col('no_fraudulent_orders') / F.col('no_orders')
         }
     )
 
