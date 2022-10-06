@@ -24,42 +24,54 @@ AGGREGATION_FUNCTIONS = {
 def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
     
     # Staging aggregates
-    data_dict['transactions_with_fraud'] = compute_transactions_with_fraud(
-        spark, data_dict['transactions']
-    )
+    # logger.info('Computing transactions_with_fraud')
+    # data_dict['transactions_with_fraud'] = compute_transactions_with_fraud(
+    #     spark, data_dict['transactions']
+    # )
     
+    logger.info('Computing merchant_sales')
     data_dict['merchant_sales'] = compute_merchant_sales(spark,
-        data_dict['transactions_with_fraud'], data_dict['merchants'])
+        data_dict['transactions'], data_dict['merchants'])
 
+    logger.info('Computing customer_accounts')
     data_dict['customer_accounts'] = compute_customer_accounts(spark,
         data_dict['consumers'], data_dict['consumer_user_mappings'])
     
+    logger.info('Computing merchant_consumers')
     data_dict['merchant_consumers'] = compute_merchant_consumers(spark,
         data_dict['transactions'])
     
+    logger.info('Computing consumer_regions')
     data_dict['consumer_regions'] = compute_consumer_regions(spark, 
         data_dict['consumers'], data_dict['postcodes'], data_dict['consumer_user_mappings'])
     
+    logger.info('Computing consumer_region_incomes')
     data_dict['consumer_region_incomes'] = compute_region_incomes(spark, 
         data_dict['consumer_regions'], data_dict['census'])
     
     # Metrics aggregates to be joined (the important part)
+    logger.info('Computing merchant_metrics')
     data_dict['merchant_metrics'] = compute_merchant_metrics(spark, 
         data_dict['merchant_sales'], data_dict['merchants'])
     
+    logger.info('Computing merchant_region_counts')
     data_dict['merchant_region_counts'] = compute_merchant_regions(spark,
         data_dict['merchant_consumers'], data_dict['consumer_regions'])
 
+    logger.info('Computing merchant_customer_incomes')
     data_dict['merchant_customer_incomes'] = compute_merchant_customer_incomes(spark,
         data_dict['merchant_consumers'], data_dict['consumer_region_incomes'])
     
+    logger.info('Computing merchant_returning_customers')
     data_dict['merchant_returning_customers'] = compute_returning_customers(spark,
         data_dict['merchant_consumers'])
     
+    logger.info('Computing merchant_vip_customers')
     data_dict['merchant_vip_customers'] = compute_vip_customers(spark,
         data_dict['merchant_consumers'], data_dict['merchant_returning_customers'])
     
     # Join all metrics to form curated merchant dataset
+    logger.info('Computing final_merchant_statistics')
     data_dict['final_merchant_statistics'] = compute_final_merchant_statistics(
         spark, data_dict['merchant_metrics'],
         data_dict['merchant_region_counts'], 
@@ -101,22 +113,25 @@ def compute_transactions_with_fraud(spark: SparkSession,
         how = 'leftouter'
     ).withColumn(
         'discounted_value',
-        F.col('fraud_prob') * F.col('dollar_value'),
+        (1 / 100) * (100 - F.col('fraud_prob')) * F.col('dollar_value'),
     )
     
 def compute_merchant_sales(spark: SparkSession, 
-        transaction_with_fraud_df: DataFrame, 
+        transaction_df: DataFrame, 
         merchant_df: DataFrame) -> 'defaultdict[str]':
     # TODO:Commenting here
 
+    transaction_with_fraud_df = compute_transactions_with_fraud(
+        spark, transaction_df
+    )
+
     return transaction_with_fraud_df \
-        .groupby('merchant_abn', 'order_datetime') \
+        .groupby(['merchant_abn', 'order_datetime']) \
         .agg(
             F.sum('dollar_value').alias('sales_revenue'),
             F.count('order_id').alias('no_orders'),
             F.sum('discounted_value').alias('discounted_sales_revenue'),
-            F.sum('no_fraudulent_orders').alias('no_fraudulent_orders'),
-            F.mean('fraud_prob').alias('average_fraud_prob')
+            (F.sum('fraud_prob') / 100).alias('approximate_fraudulent_orders')
         )
     
 def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame, 
@@ -287,15 +302,21 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
         .groupby('merchant_abn') \
         .agg(
             F.sum('sales_revenue').alias('sales_revenue'),
-            F.sum('discounted_sales_revenue').alias('discounted_sales_revenue'),
+            F.sum('discounted_sales_revenue') \
+                .alias('discounted_sales_revenue'),
             F.sum('no_orders').alias('no_orders'),
-            F.sum('no_fraudulent_orders').alias('no_fraudulent_orders'),
+            F.sum('approximate_fraudulent_orders') \
+                .alias('approximate_fraudulent_orders'),
             (F.sum('sales_revenue') / num_days).alias('avg_daily_rev'),
-            (F.sum('discounted_sales_revenue') / num_days).alias('discounted_avg_daily_rev'),
-            (F.sum('sales_revenue') / F.sum('no_orders')).alias('avg_value_per_order'),
-            (F.sum('discounted_sales_revenue') / F.sum('no_orders')).alias('discounted_avg_value_per_order'),
-            (F.sum('no_orders') / num_days).alias('avg_daily_order')
-            (F.sum('no_fraudulent_orders') / num_days).alias('avg_daily_fraudulent_order')
+            (F.sum('discounted_sales_revenue') / num_days) \
+                .alias('discounted_avg_daily_rev'),
+            (F.sum('sales_revenue') / F.sum('no_orders')) \
+                .alias('avg_value_per_order'),
+            (F.sum('discounted_sales_revenue') / F.sum('no_orders')) \
+                .alias('discounted_avg_value_per_order'),
+            (F.sum('no_orders') / num_days).alias('avg_daily_orders'),
+            (F.sum('approximate_fraudulent_orders') / num_days) \
+                .alias('avg_daily_approximate_fraudulent_orders')
         )
     
     merchant_daily_sales = merchants.join(
@@ -312,7 +333,7 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
             'discounted_avg_commission_per_order': F.col('discounted_avg_value_per_order') * (F.col('take_rate')/100),
             'overall_commission': F.col('sales_revenue') * (F.col('take_rate')/100),
             'discounted_overall_commission': F.col('discounted_sales_revenue') * (F.col('take_rate')/100),
-            'overall_fraud_rate': F.col('no_fraudulent_orders') / F.col('no_orders')
+            'overall_fraud_rate': F.col('approximate_fraudulent_orders') / F.col('no_orders')
         }
     )
 

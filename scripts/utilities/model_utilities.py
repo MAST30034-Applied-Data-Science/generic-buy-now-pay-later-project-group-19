@@ -4,14 +4,17 @@ TODO: commenting
 
 from pyspark.sql import DataFrame
 from pyspark.ml.regression import LinearRegressionModel as LRM
-from pyspark.ml.feature import VectorAssembler as VA
+from pyspark.ml.feature import VectorAssembler
 
 DEFAULT_MODEL_PATH = './models' # where the raw data is
+
+# TODO: function to generate the model
+# TODO: add a flag to the ETL on whether to generate the model or simply not calculate fraud.
 
 def read_model(model_path: str = DEFAULT_MODEL_PATH):
     return LRM.load(f'{model_path}/fraud_regression')
 
-def predict_fraud(compute_daily_user_transaction_df: DataFrame):
+def predict_fraud(daily_user_transaction_df: DataFrame):
 
     # define important col names
     feature_vector = 'fraud_features'
@@ -25,11 +28,11 @@ def predict_fraud(compute_daily_user_transaction_df: DataFrame):
     )
 
     # apply the transforms
-    daily_user_transactions_df = assembler.transform(daily_user_transaction_df)
+    daily_user_transaction_df = assembler.transform(daily_user_transaction_df)
     
     # get the lm and predict the data
-    lm = read_model(model_path)
-    daily_user_transaction_df = lm.transform(predict_sdf) \
+    lm = read_model()
+    daily_user_transaction_df = lm.transform(daily_user_transaction_df) \
         .withColumnRenamed('prediction', 'fraud_prob')
 
     return daily_user_transaction_df
