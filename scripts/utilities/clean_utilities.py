@@ -43,6 +43,11 @@ def clean_data(spark: SparkSession,
     return data_dict
 
 
+def remove_null_values(df: DataFrame, colname: str) -> DataFrame:
+    # TODO: commenting
+    return df.where(F.col(colname).isNotNull())
+
+
 def remove_transaction_outliers(spark: SparkSession, 
         data_dict: 'defaultdict[str]') -> 'defaultdict[str]':
     """ Check outliers from the transaction dataset
