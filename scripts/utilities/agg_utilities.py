@@ -89,7 +89,7 @@ def compute_daily_user_transactions(spark: SparkSession,
     return transactions_df.groupby(['user_id', 'order_datetime']) \
         .agg(
             F.sum('dollar_value').alias('total_value'),
-            F.count('order_id').alias('no_orders'),
+            F.count('order_id').alias('num_orders'),
             F.mean('dollar_value').alias('avg_order_value')
         )
 
@@ -104,7 +104,7 @@ def compute_transactions_with_fraud(spark: SparkSession,
     #     .groupby(['merchant_abn','order_datetime','user_id']) \
     #     .agg(
     #         F.sum('dollar_value').alias('total_value'),
-    #         F.count('order_id').alias('no_orders'),
+    #         F.count('order_id').alias('num_orders'),
     #         F.mean('dollar_value').alias('avg_order_value')
     #     )
     return transactions_df.join(
@@ -129,7 +129,7 @@ def compute_merchant_sales(spark: SparkSession,
         .groupby(['merchant_abn', 'order_datetime']) \
         .agg(
             F.sum('dollar_value').alias('sales_revenue'),
-            F.count('order_id').alias('no_orders'),
+            F.count('order_id').alias('num_orders'),
             F.sum('discounted_value').alias('discounted_sales_revenue'),
             (F.sum('fraud_prob') / 100).alias('approximate_fraudulent_orders')
         )
@@ -157,7 +157,7 @@ def compute_merchant_consumers(spark: SparkSession, transaction_df: DataFrame) -
         .groupby(['merchant_abn', 'user_id']) \
         .agg({'dollar_value':'sum', 'order_id':'count'}) \
         .withColumnRenamed('sum(dollar_value)', 'dollar_spent') \
-        .withColumnRenamed('count(order_id)', 'no_orders')
+        .withColumnRenamed('count(order_id)', 'num_orders')
 
 
 def compute_consumer_regions(spark: SparkSession, consumer_df: DataFrame, 
@@ -253,10 +253,11 @@ def compute_returning_customers(spark: SparkSession,
             'merchant_abn'
         ).agg(
             F.count(
-                    F.when(F.col('no_orders')>2, True)
+                    F.when(F.col('num_orders')>2, True)
                 ).alias(
-                    'returning_customer'
+                    'returning_customers'
                 ),
+            F.count_distinct('user_id').alias('unique_customers'),
             F.mean('dollar_spent').alias('mean_spending'),
             F.stddev('dollar_spent').alias('std_spending')
         )
@@ -279,7 +280,7 @@ def compute_vip_customers(spark: SparkSession, merchant_consumer_df: DataFrame,
                     True
                 )
             ).alias(
-                'vip_customer'
+                'vip_customers'
             )
         )
 
@@ -304,17 +305,17 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
             F.sum('sales_revenue').alias('sales_revenue'),
             F.sum('discounted_sales_revenue') \
                 .alias('discounted_sales_revenue'),
-            F.sum('no_orders').alias('no_orders'),
+            F.sum('num_orders').alias('num_orders'),
             F.sum('approximate_fraudulent_orders') \
                 .alias('approximate_fraudulent_orders'),
             (F.sum('sales_revenue') / num_days).alias('avg_daily_rev'),
             (F.sum('discounted_sales_revenue') / num_days) \
                 .alias('discounted_avg_daily_rev'),
-            (F.sum('sales_revenue') / F.sum('no_orders')) \
+            (F.sum('sales_revenue') / F.sum('num_orders')) \
                 .alias('avg_value_per_order'),
-            (F.sum('discounted_sales_revenue') / F.sum('no_orders')) \
+            (F.sum('discounted_sales_revenue') / F.sum('num_orders')) \
                 .alias('discounted_avg_value_per_order'),
-            (F.sum('no_orders') / num_days).alias('avg_daily_orders'),
+            (F.sum('num_orders') / num_days).alias('avg_daily_orders'),
             (F.sum('approximate_fraudulent_orders') / num_days) \
                 .alias('avg_daily_approximate_fraudulent_orders')
         )
@@ -333,7 +334,7 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
             'discounted_avg_commission_per_order': F.col('discounted_avg_value_per_order') * (F.col('take_rate')/100),
             'overall_commission': F.col('sales_revenue') * (F.col('take_rate')/100),
             'discounted_overall_commission': F.col('discounted_sales_revenue') * (F.col('take_rate')/100),
-            'overall_fraud_rate': F.col('approximate_fraudulent_orders') / F.col('no_orders')
+            'overall_fraud_rate': F.col('approximate_fraudulent_orders') / F.col('num_orders')
         }
     )
 
