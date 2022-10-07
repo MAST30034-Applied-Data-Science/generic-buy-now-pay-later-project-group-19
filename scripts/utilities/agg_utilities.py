@@ -8,6 +8,7 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType
 from pyspark.ml.feature import Imputer
+# from pyspark.pandas import date_range
 import pandas as pd
 
 from utilities.model_utilities import predict_fraud
@@ -297,9 +298,40 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
                           datetime.strptime(date_range[1], "%Y-%m-%d"))
     
     num_days = (max_date - min_date).days
+
+    day_interval = 24 * 60 * 60
+
+    day_range_df = spark \
+        .sql(f'''
+            SELECT explode(
+                sequence(
+                    to_date('{min_date}'), 
+                    to_date('{max_date}'), 
+                    interval 1 day
+                )
+            ) AS order_datetime
+        ''')
+
+    # assign the day range to each merchant
+    merchant_day_range_df = day_range_df \
+        .crossJoin(
+            merchants.select('merchant_abn')
+        )
+
+    # day_range_df = date_range(
+    #     min_date, max_date
+    # ).to_spark().select(
+    #     F.col("id").cast("datetime").alias("order_datetime")
+    # )
     
     # Group first to reduce the table size before joining
-    merchant_daily_sales = merchant_sales \
+    merchant_daily_sales = merchant_day_range_df \
+        .join(
+            merchant_sales,
+            on = ['order_datetime', 'merchant_abn'],
+            how = 'leftouter'
+        ) \
+        .fillna(0) \
         .groupby('merchant_abn') \
         .agg(
             F.sum('sales_revenue').alias('sales_revenue'),
@@ -317,7 +349,10 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
                 .alias('discounted_avg_value_per_order'),
             (F.sum('num_orders') / num_days).alias('avg_daily_orders'),
             (F.sum('approximate_fraudulent_orders') / num_days) \
-                .alias('avg_daily_approximate_fraudulent_orders')
+                .alias('avg_daily_approximate_fraudulent_orders'),
+            F.stddev('sales_revenue').alias('std_daily_revenue'),
+            F.stddev('discounted_sales_revenue') \
+                .alias('std_daily_discounted_revenue'),
         )
     
     merchant_daily_sales = merchants.join(
