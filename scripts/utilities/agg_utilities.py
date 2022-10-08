@@ -25,14 +25,18 @@ AGGREGATION_FUNCTIONS = {
 def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
     
     # Staging aggregates
-    # logger.info('Computing transactions_with_fraud')
-    # data_dict['transactions_with_fraud'] = compute_transactions_with_fraud(
-    #     spark, data_dict['transactions']
-    # )
+    logger.info('Computing transactions_with_fraud')
+    data_dict['*transactions_with_fraud'] = compute_transactions_with_fraud(
+        spark, data_dict['transactions']
+    )
     
-    logger.info('Computing merchant_sales')
-    data_dict['merchant_sales'] = compute_merchant_sales(spark,
-        data_dict['transactions'], data_dict['merchants'])
+    logger.info('Computing merchant_daily_sales')
+    data_dict['merchant_daily_sales'] = compute_merchant_daily_sales(spark,
+        data_dict['*transactions_with_fraud'])
+
+    logger.info('Computing merchant_monthly_sales')
+    data_dict['merchant_monthly_sales'] = compute_merchant_monthly_sales(spark,
+        data_dict['*transactions_with_fraud'])
 
     logger.info('Computing customer_accounts')
     data_dict['customer_accounts'] = compute_customer_accounts(spark,
@@ -53,7 +57,8 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
     # Metrics aggregates to be joined (the important part)
     logger.info('Computing merchant_metrics')
     data_dict['merchant_metrics'] = compute_merchant_metrics(spark, 
-        data_dict['merchant_sales'], data_dict['merchants'])
+        data_dict['merchant_daily_sales'], data_dict['merchant_monthly_sales'], 
+        data_dict['merchants'])
     
     logger.info('Computing merchant_region_counts')
     data_dict['merchant_region_counts'] = compute_merchant_regions(spark,
@@ -117,14 +122,9 @@ def compute_transactions_with_fraud(spark: SparkSession,
         (1 / 100) * (100 - F.col('fraud_prob')) * F.col('dollar_value'),
     )
     
-def compute_merchant_sales(spark: SparkSession, 
-        transaction_df: DataFrame, 
-        merchant_df: DataFrame) -> 'defaultdict[str]':
+def compute_merchant_daily_sales(spark: SparkSession, 
+        transaction_with_fraud_df: DataFrame) -> DataFrame:
     # TODO:Commenting here
-
-    transaction_with_fraud_df = compute_transactions_with_fraud(
-        spark, transaction_df
-    )
 
     return transaction_with_fraud_df \
         .groupby(['merchant_abn', 'order_datetime']) \
@@ -134,6 +134,21 @@ def compute_merchant_sales(spark: SparkSession,
             F.sum('discounted_value').alias('discounted_sales_revenue'),
             (F.sum('fraud_prob') / 100).alias('approximate_fraudulent_orders')
         )
+
+def compute_merchant_monthly_sales(spark: SparkSession, 
+        transaction_with_fraud_df: DataFrame) -> DataFrame:
+
+    return transaction_with_fraud_df \
+        .groupby([
+            'merchant_abn', 
+            F.month('order_datetime').alias('order_month')]) \
+        .agg(
+            F.sum('dollar_value').alias('sales_revenue'),
+            F.count('order_id').alias('num_orders'),
+            F.sum('discounted_value').alias('discounted_sales_revenue'),
+            (F.sum('fraud_prob') / 100).alias('approximate_fraudulent_orders')
+        )
+    
     
 def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame, 
         consumer_user_mapping_df: DataFrame) -> DataFrame:
@@ -285,12 +300,11 @@ def compute_vip_customers(spark: SparkSession, merchant_consumer_df: DataFrame,
             )
         )
 
-def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
-                           merchants: DataFrame) -> DataFrame:
-    
+def compute_merchant_metrics(spark: SparkSession, merchant_daily_sales: DataFrame,
+    merchant_monthly_sales: DataFrame, merchants: DataFrame) -> DataFrame:
     
     # This part is taking a while 
-    date_range = merchant_sales.select(F.min("order_datetime"), 
+    date_range = merchant_daily_sales.select(F.min("order_datetime"), 
                                        F.max("order_datetime")
                                       ).first()
     
@@ -299,9 +313,7 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
     
     num_days = (max_date - min_date).days
 
-    day_interval = 24 * 60 * 60
-
-    day_range_df = spark \
+    date_range_df = spark \
         .sql(f'''
             SELECT explode(
                 sequence(
@@ -313,21 +325,35 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
         ''')
 
     # assign the day range to each merchant
-    merchant_day_range_df = day_range_df \
+    merchant_day_range_df = date_range_df \
         .crossJoin(
             merchants.select('merchant_abn')
         )
 
-    # day_range_df = date_range(
-    #     min_date, max_date
-    # ).to_spark().select(
-    #     F.col("id").cast("datetime").alias("order_datetime")
-    # )
+    # # This part is taking a while 
+    # month_range = merchant_monthly_sales.select(F.min("order_month"), 
+    #                                    F.max("order_month")
+    #                                   ).first()
+    
+    # min_month, max_month = month_range
+    
+    num_months = max_date.month - min_date.month + 1
+
+
+    # assign the month range to each merchant
+    merchant_month_range_df = date_range_df \
+        .select(
+            F.month('order_datetime').alias('order_month')
+        ).distinct() \
+        .crossJoin(
+            merchants.select('merchant_abn')
+        )
+
     
     # Group first to reduce the table size before joining
     merchant_daily_sales = merchant_day_range_df \
         .join(
-            merchant_sales,
+            merchant_daily_sales,
             on = ['order_datetime', 'merchant_abn'],
             how = 'leftouter'
         ) \
@@ -354,24 +380,52 @@ def compute_merchant_metrics(spark: SparkSession, merchant_sales: DataFrame,
             F.stddev('discounted_sales_revenue') \
                 .alias('std_daily_discounted_revenue'),
         )
-    
-    merchant_daily_sales = merchants.join(
-        merchant_daily_sales, 
-        on=["merchant_abn"],
-        how='left'
-    )
+
+    # Group first to reduce the table size before joining
+    merchant_monthly_sales = merchant_month_range_df \
+        .join(
+            merchant_monthly_sales,
+            on = ['order_month', 'merchant_abn'],
+            how = 'leftouter'
+        ) \
+        .fillna(0) \
+        .groupby('merchant_abn') \
+        .agg(
+            (F.sum('sales_revenue') / num_months).alias('avg_monthly_rev'),
+            (F.sum('discounted_sales_revenue') / num_months) \
+                .alias('discounted_avg_monthly_rev'),
+            (F.sum('num_orders') / num_months).alias('avg_monthly_orders'),
+            (F.sum('approximate_fraudulent_orders') / num_months) \
+                .alias('avg_monthly_approximate_fraudulent_orders'),
+            F.stddev('sales_revenue').alias('std_monthly_revenue'),
+            F.stddev('discounted_sales_revenue') \
+                .alias('std_monthly_discounted_revenue'),
+        )
         
-    return merchant_daily_sales.withColumns(
-        {
-            'avg_daily_commission': F.col('avg_daily_rev') * (F.col('take_rate')/100),
-            'discounted_avg_daily_commission': F.col('discounted_avg_daily_rev') * (F.col('take_rate')/100),
-            'avg_commission_per_order': F.col('avg_value_per_order') * (F.col('take_rate')/100),
-            'discounted_avg_commission_per_order': F.col('discounted_avg_value_per_order') * (F.col('take_rate')/100),
-            'overall_commission': F.col('sales_revenue') * (F.col('take_rate')/100),
-            'discounted_overall_commission': F.col('discounted_sales_revenue') * (F.col('take_rate')/100),
-            'overall_fraud_rate': F.col('approximate_fraudulent_orders') / F.col('num_orders')
-        }
-    )
+    return merchants \
+        .join(
+            merchant_monthly_sales,
+            on=["merchant_abn"],
+            how='left'
+        ) \
+        .join(
+            merchant_daily_sales,
+            on=["merchant_abn"],
+            how='left'
+        ) \
+        .withColumns(
+            {
+                'avg_daily_commission': F.col('avg_daily_rev') * (F.col('take_rate')/100),
+                'discounted_avg_daily_commission': F.col('discounted_avg_daily_rev') * (F.col('take_rate')/100),
+                'avg_monthly_commission': F.col('avg_monthly_rev') * (F.col('take_rate')/100),
+                'discounted_avg_monthly_commission': F.col('discounted_avg_monthly_rev') * (F.col('take_rate')/100),
+                'avg_commission_per_order': F.col('avg_value_per_order') * (F.col('take_rate')/100),
+                'discounted_avg_commission_per_order': F.col('discounted_avg_value_per_order') * (F.col('take_rate')/100),
+                'overall_commission': F.col('sales_revenue') * (F.col('take_rate')/100),
+                'discounted_overall_commission': F.col('discounted_sales_revenue') * (F.col('take_rate')/100),
+                'overall_fraud_rate': F.col('approximate_fraudulent_orders') / F.col('num_orders')
+            }
+        )
 
 def compute_final_merchant_statistics(spark: SparkSession, 
         merchant_metrics: DataFrame, 
