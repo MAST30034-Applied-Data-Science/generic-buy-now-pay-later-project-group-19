@@ -18,7 +18,7 @@ def predict_fraud(daily_user_transaction_df: DataFrame):
 
     # define important col names
     feature_vector = 'fraud_features'
-    input_cols = ['total_value','avg_order_value'] 
+    input_cols = ['tot_dollar_value','avg_dollar_value'] 
 
     assembler = VectorAssembler(
         # which column to combine
