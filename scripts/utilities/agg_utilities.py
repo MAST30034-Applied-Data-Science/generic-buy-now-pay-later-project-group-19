@@ -499,7 +499,7 @@ def compute_merchant_metrics(spark: SparkSession, merchant_df: DataFrame,
         {
             'dollar_value': ['sum', 'mean', 'stddev'],
             'discounted_value': ['sum', 'mean', 'stddev'],
-            'order_id': ['sum', 'mean', 'stddev'],
+            'order_id': ['count'],
             'fraud_order': [
                 ('num', lambda colname: F.sum('fraud_prob') / 100),
                 (
