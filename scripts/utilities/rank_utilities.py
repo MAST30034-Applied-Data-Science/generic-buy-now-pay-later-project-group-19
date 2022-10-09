@@ -45,16 +45,22 @@ def min_max_scale(column):
     else : return (column - np.min(column)) / (np.max(column) - np.min(column))
 
 def average_rank(df: DataFrame, colnames: 'list[str]', 
-        rank_type: str = 'rank', weights: 'list[float]|None' = None) -> DataFrame:
+        rank_type: str = 'rank', weights: 'list[float]|None' = None,
+        suffix: str = '') -> DataFrame:
 
     n = len(colnames)
     if weights == None:
-        weights = np.ones((len(colnames), 1)) / n
+        weights = np.ones((1, len(colnames))) / n
 
     rank_colnames = [
         f'{rank_type}_{cn}' for cn in colnames
     ]
 
-    df['average_rank'] = np.matrix(df[rank_colnames]) @ weights
+    if len(suffix) > 0: suffix = '_' + suffix
+
+    # print(np.matrix(df[rank_colnames]).shape)
+    # print(np.matrix(weights).T.shape)
+
+    df[f'average_rank{suffix}'] = np.matrix(df[rank_colnames]) @ np.matrix(weights).T
 
     return df
