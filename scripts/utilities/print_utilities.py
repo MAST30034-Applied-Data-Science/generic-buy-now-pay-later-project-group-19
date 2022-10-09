@@ -80,3 +80,11 @@ def print_dataset_summary(data_dict: 'defaultdict[str]',
             if logger.level == logging.DEBUG:
                 logger.debug(f'Check missing values in the {dataset_name} dataset')
                 logger.debug(f'\n{INFO.count_missing_values(df)}')
+
+
+# TODO: commenting
+def capitalized_spaced(colname: str):
+    return ' '.join([
+        w.capitalize()
+        for w in colname.split('_')
+    ])
