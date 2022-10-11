@@ -41,12 +41,10 @@ def clean_data(spark: SparkSession,
     data_dict = remove_transaction_outliers(spark, data_dict)
     data_dict = extract_merchant_tags(spark, data_dict)
     return data_dict
-
-
+    
 def remove_null_values(df: DataFrame, colname: str) -> DataFrame:
     # TODO: commenting
     return df.where(F.col(colname).isNotNull())
-
 
 def remove_transaction_outliers(spark: SparkSession, 
         data_dict: 'defaultdict[str]') -> 'defaultdict[str]':

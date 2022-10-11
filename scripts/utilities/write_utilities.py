@@ -24,6 +24,9 @@ def write_data(data_dict: 'defaultdict[str]',
 
     for dataset_name, data in data_dict.items():
 
+        # don't save this dataset 
+        if dataset_name[0] == '*': continue
+
         # filename to save the dataset with
         save_name = f'{data_path}/{dataset_name}'
 

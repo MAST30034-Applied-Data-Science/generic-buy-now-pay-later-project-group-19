@@ -145,3 +145,5 @@ if __name__ == '__main__':
     # Run the ETL Process
     ############################################################################
     output = etl(spark, input_path, output_path)    
+
+    logger.info('ETL Complete!')
