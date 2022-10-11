@@ -109,59 +109,59 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
     )
     
     logger.info('Computing merchant_daily_sales')
-    data_dict['merchant_daily_sales'] = compute_merchant_daily_sales(spark,
+    data_dict['*merchant_daily_sales'] = compute_merchant_daily_sales(spark,
         data_dict['*transactions_with_fraud'])
 
     logger.info('Computing merchant_monthly_sales')
     data_dict['merchant_monthly_sales'] = compute_merchant_monthly_sales(spark,
         data_dict['*transactions_with_fraud'])
 
-    logger.info('Computing customer_accounts')
-    data_dict['customer_accounts'] = compute_customer_accounts(spark,
-        data_dict['consumers'], data_dict['consumer_user_mappings'])
+    # logger.info('Computing customer_accounts')
+    # data_dict['customer_accounts'] = compute_customer_accounts(spark,
+    #     data_dict['consumers'], data_dict['consumer_user_mappings'])
     
     logger.info('Computing merchant_consumers')
-    data_dict['merchant_consumers'] = compute_merchant_consumers(spark,
+    data_dict['*merchant_consumers'] = compute_merchant_consumers(spark,
         data_dict['transactions'])
     
     logger.info('Computing consumer_regions')
-    data_dict['consumer_regions'] = compute_consumer_regions(spark, 
+    data_dict['*consumer_regions'] = compute_consumer_regions(spark, 
         data_dict['consumers'], data_dict['postcodes'], data_dict['consumer_user_mappings'])
     
     logger.info('Computing consumer_region_incomes')
-    data_dict['consumer_region_incomes'] = compute_region_incomes(spark, 
-        data_dict['consumer_regions'], data_dict['census'])
+    data_dict['*consumer_region_incomes'] = compute_region_incomes(spark, 
+        data_dict['*consumer_regions'], data_dict['census'])
     
     # Metrics aggregates to be joined (the important part)
     logger.info('Computing merchant_metrics')
-    data_dict['merchant_metrics'] = compute_merchant_metrics(spark, 
+    data_dict['*merchant_metrics'] = compute_merchant_metrics(spark, 
         data_dict['merchants'], data_dict['*transactions_with_fraud'],
-        data_dict['merchant_daily_sales'], data_dict['merchant_monthly_sales'])
+        data_dict['*merchant_daily_sales'], data_dict['merchant_monthly_sales'])
     
     logger.info('Computing merchant_region_counts')
-    data_dict['merchant_region_counts'] = compute_merchant_regions(spark,
-        data_dict['merchant_consumers'], data_dict['consumer_regions'])
+    data_dict['*merchant_region_counts'] = compute_merchant_regions(spark,
+        data_dict['*merchant_consumers'], data_dict['*consumer_regions'])
 
     logger.info('Computing merchant_customer_incomes')
-    data_dict['merchant_customer_incomes'] = compute_merchant_customer_incomes(spark,
-        data_dict['merchant_consumers'], data_dict['consumer_region_incomes'])
+    data_dict['*merchant_customer_incomes'] = compute_merchant_customer_incomes(spark,
+        data_dict['*merchant_consumers'], data_dict['*consumer_region_incomes'])
     
     logger.info('Computing merchant_returning_customers')
-    data_dict['merchant_returning_customers'] = compute_returning_customers(spark,
-        data_dict['merchant_consumers'])
+    data_dict['*merchant_returning_customers'] = compute_returning_customers(spark,
+        data_dict['*merchant_consumers'])
     
     logger.info('Computing merchant_vip_customers')
-    data_dict['merchant_vip_customers'] = compute_vip_customers(spark,
-        data_dict['merchant_consumers'], data_dict['merchant_returning_customers'])
+    data_dict['*merchant_vip_customers'] = compute_vip_customers(spark,
+        data_dict['*merchant_consumers'], data_dict['*merchant_returning_customers'])
     
     # Join all metrics to form curated merchant dataset
     logger.info('Computing final_merchant_statistics')
     data_dict['final_merchant_statistics'] = compute_final_merchant_statistics(
-        spark, data_dict['merchant_metrics'],
-        data_dict['merchant_region_counts'], 
-        data_dict['merchant_customer_incomes'],
-        data_dict['merchant_returning_customers'],
-        data_dict['merchant_vip_customers']
+        spark, data_dict['*merchant_metrics'],
+        data_dict['*merchant_region_counts'], 
+        data_dict['*merchant_customer_incomes'],
+        data_dict['*merchant_returning_customers'],
+        data_dict['*merchant_vip_customers']
     )
 
     return data_dict # redundant, but return it just in case
@@ -284,7 +284,7 @@ def compute_merchant_monthly_sales(spark: SparkSession,
             (F.sum('fraud_prob') / 100).alias('approximate_fraudulent_orders')
         )
     
-    
+
 def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame, 
         consumer_user_mapping_df: DataFrame) -> DataFrame:
     """ Mapping each user_id to consumer_id, which is required for merging of datasets
@@ -301,6 +301,7 @@ def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame,
         consumer_user_mapping_df,
         on = 'consumer_id'
     )
+
 
 def compute_customer_transactions(spark: SparkSession, 
         transactions_df: DataFrame,
