@@ -7,6 +7,7 @@ import os
 import re
 import functools
 import requests
+import datetime
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -15,13 +16,15 @@ import pandas as pd
 
 from utilities.log_utilities import logger
 
-DEFAULT_INPUT_PATH = './data/tables' # where the raw data is
+DEFAULT_INPUT_DATA_PATH = './data/tables' # where the raw data is
 
 # regex queries for finding the relevant datasets
 RE_CONSUMERS = r'tbl_consumer.*\.csv'
 RE_CONSUMER_USER_MAPPINGS = r'consumer_user_details.*\.parquet'
 RE_TRANSACTIONS = r'transactions_\d+_\d+_snapshot'
 RE_MERCHANTS = r'tbl_merchants.*\.parquet'
+RE_CONSUMER_FRAUD = r'consumer_fraud_probability.*\.csv'
+RE_MERCHANT_FRAUD = r'merchant_fraud_probability.*\.csv'
 
 def union_or_create(df: DataFrame, new_df: DataFrame) -> DataFrame:
     """ Either return a new dataset or append the new dataset to the old one.
@@ -39,7 +42,7 @@ def union_or_create(df: DataFrame, new_df: DataFrame) -> DataFrame:
         return df.union(new_df)
 
 def read_data(spark: SparkSession, 
-        data_path: str = DEFAULT_INPUT_PATH) -> 'defaultdict[str]':
+        data_path: str = DEFAULT_INPUT_DATA_PATH) -> 'defaultdict[str]':
     """ Read in all the relevant datasets placed in the one raw/tables folder.
     This makes assumptions about the naming schemes and file formats of each dataset,
     as per the `regex` queries defined at the top of this module.
@@ -61,7 +64,9 @@ def read_data(spark: SparkSession,
         'consumers': RE_CONSUMERS,
         'consumer_user_mappings': RE_CONSUMER_USER_MAPPINGS,
         'transactions': RE_TRANSACTIONS,
-        'merchants': RE_MERCHANTS
+        'merchants': RE_MERCHANTS,
+        'consumer_fraud': RE_CONSUMER_FRAUD,
+        'merchant_fraud': RE_MERCHANT_FRAUD
     }
 
     # define the reading functions for each relevant dataset
@@ -69,7 +74,9 @@ def read_data(spark: SparkSession,
         'consumers': read_consumers,
         'consumer_user_mappings': read_consumer_user_mappings,
         'transactions': read_transactions,
-        'merchants': read_merchants
+        'merchants': read_merchants,
+        'consumer_fraud': read_consumer_fraud,
+        'merchant_fraud': read_merchant_fraud
     }
 
     # iterate through the filenames in the raw data path
@@ -100,7 +107,7 @@ def read_data(spark: SparkSession,
 
     return data_dict
 
-def read_consumers(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
+def read_consumers(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_PATH,
         filename: str = 'tbl_consumer.csv') -> DataFrame:
     """ Read the consumer dataset.
 
@@ -120,7 +127,7 @@ def read_consumers(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
         )
 
 def read_consumer_user_mappings(spark: SparkSession, 
-        data_path: str = DEFAULT_INPUT_PATH, 
+        data_path: str = DEFAULT_INPUT_DATA_PATH, 
         filename: str = 'consumer_user_details.parquet') -> DataFrame:
     """ Read the `user_id` to `consumer_id` mapping dataset.
 
@@ -134,7 +141,26 @@ def read_consumer_user_mappings(spark: SparkSession,
     """
     return spark.read.parquet(f'{data_path}/{filename}')
 
-def read_transactions(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
+def read_all_transactions(spark: SparkSession, 
+        data_path: str = DEFAULT_INPUT_DATA_PATH) -> DataFrame:
+    # TODO: COMMENTING
+
+    output_df = None
+
+    # iterate through the filenames in the raw data path
+    for filename in os.listdir(data_path):
+        if re.search(RE_TRANSACTIONS, filename):
+            logger.debug(f'READING {data_path}/{filename}')
+
+            # read in the new data
+            new_df = read_transactions(spark, data_path, filename)
+
+            # either append or create it
+            output_df = union_or_create(output_df, new_df)
+
+    return output_df
+
+def read_transactions(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_PATH,
         folder: str = 'transactions_20210228_20210827_snapshot') -> DataFrame:
     """ Read the transaction dataset.
 
@@ -154,28 +180,33 @@ def read_transactions(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
 
         logger.debug('Trying to read transactions the nice way.')
 
+        out_df = spark.read.parquet(f'{data_path}/{folder}').withColumn(
+            'order_datetime', 
+            F.date_format('order_datetime', "yyyy-MM-dd")
+        )
+# date_format(col("vacationdate"), "dd-MM-YYYY"
         # iterate over the subfolders in the transactions folder (ignore non-subfolder paths)
-        for subfolder in os.listdir(f'{data_path}/{folder}'):
-            if not os.path.isdir(f'{data_path}/{folder}/{subfolder}'): continue
+        # for subfolder in os.listdir(f'{data_path}/{folder}'):
+        #     if not os.path.isdir(f'{data_path}/{folder}/{subfolder}'): continue
 
-            # iterate over the files in the order_datetime subfolder
-            for filename in os.listdir(f'{data_path}/{folder}/{subfolder}'):
+        #     # iterate over the files in the order_datetime subfolder
+        #     for filename in os.listdir(f'{data_path}/{folder}/{subfolder}'):
 
-                # skip if the file is not a parquet file
-                if filename.split('.')[-1] != 'parquet': continue
+        #         # skip if the file is not a parquet file
+        #         if filename.split('.')[-1] != 'parquet': continue
 
-                # read in this subfolder parquet
-                temp_df = spark.read.parquet(
-                    f'{data_path}/{folder}/{subfolder}/{filename}')
+        #         # read in this subfolder parquet
+        #         temp_df = spark.read.parquet(
+        #             f'{data_path}/{folder}/{subfolder}/{filename}')
 
-                # add the order_datetime as a column
-                order_datetime = subfolder.split('=')[-1]
-                temp_df = temp_df.withColumn('order_datetime', 
-                    F.lit(order_datetime))
-                    # F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
+        #         # add the order_datetime as a column
+        #         order_datetime = subfolder.split('=')[-1]
+        #         temp_df = temp_df.withColumn('order_datetime', 
+        #             F.lit(order_datetime))
+        #             # F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
 
-                # add this to the output
-                out_df = union_or_create(out_df, temp_df)
+        #         # add this to the output
+        #         out_df = union_or_create(out_df, temp_df)
         
     except: # specifically for and by Tommy (the rest of the group doesn't activate this code)
 
@@ -239,7 +270,7 @@ def read_transactions(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
 
     return out_df
 
-def read_merchants(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
+def read_merchants(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_PATH,
         filename: str = 'tbl_merchants.parquet') -> DataFrame:
     """ Read the merchant dataset.
 
@@ -269,7 +300,7 @@ def read_postcodes(spark: SparkSession):
     return spark.createDataFrame(postcode_df)\
         .withColumnRenamed('SA2_MAINCODE_2016', 'sa2_code')
 
-def read_census(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
+def read_census(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_PATH,
         filename: str = 'SA2/AUS/2021Census_G02_AUST_SA2.csv'):
     """ Read the external SA2 Census (2021) dataset.
     TODO: if there's time, add automatic downloading [based on a given year].
@@ -301,3 +332,27 @@ def read_census(spark: SparkSession, data_path: str = DEFAULT_INPUT_PATH,
     return census_df.select([
         F.col(colname).alias(colname.lower()) for colname in census_df.columns
     ]).withColumnRenamed(sa2_code_colname, 'sa2_code')
+
+def read_consumer_fraud(spark: SparkSession, 
+        data_path: str = DEFAULT_INPUT_DATA_PATH,
+        filename: str = 'consumer_fraud_probability.csv'):
+
+    return spark.read.csv(
+            f'{data_path}/{filename}', 
+            header = True,
+        ).withColumn(
+            'fraud_probability', 
+            F.col('fraud_probability').cast('float')
+        )
+
+def read_merchant_fraud(spark: SparkSession, 
+        data_path: str = DEFAULT_INPUT_DATA_PATH,
+        filename: str = 'merchant_fraud_probability.csv'):
+
+    return spark.read.csv(
+            f'{data_path}/{filename}', 
+            header = True,
+        ).withColumn(
+            'fraud_probability', 
+            F.col('fraud_probability').cast('float')
+        )

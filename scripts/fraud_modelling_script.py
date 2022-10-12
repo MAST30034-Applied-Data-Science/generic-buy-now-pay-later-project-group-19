@@ -5,41 +5,35 @@ TODO: Add documentation of the steps here.
 """
 
 # Python Libraries
-from collections import defaultdict
 import logging
-import os
-import sys
 import argparse
-import re
 # ... TODO: Add to this as necessary
 
 # External Libraries
-import pandas as pd
-import numpy as np
 from pyspark.sql import SparkSession, DataFrame
+from pyspark.ml.regression import LinearRegressionModel as LRM
 # ... TODO: Add to this as necessary
 
 # Our Modules
 from utilities.log_utilities import logger, file_handler
 import utilities.print_utilities as PRINT
 import utilities.read_utilities as READ
-import utilities.clean_utilities as CLEAN
 import utilities.agg_utilities as AGG
+import utilities.model_utilities as MODEL
 import utilities.write_utilities as WRITE
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
-SPARK = True
-DEFAULT_INPUT_PATH = './data/tables' # where the raw data is
-DEFAULT_OUTPUT_PATH = './data/curated' # where the curated data is
+DEFAULT_INPUT_DATA_PATH = READ.DEFAULT_INPUT_DATA_PATH # where the raw data is
+DEFAULT_OUTPUT_MODEL_PATH = MODEL.DEFAULT_MODEL_PATH
 # ... TODO: Add to this as necessary
 
 ################################################################################
 # Define the ETL Process
 ################################################################################
-def etl(spark: SparkSession, input_path:str, 
-        output_path:str = DEFAULT_OUTPUT_PATH) -> 'defaultdict[str, DataFrame|None]':
-    """ The whole etl process in one script.
+def model_fraud(spark: SparkSession, input_path:str = DEFAULT_INPUT_DATA_PATH, 
+        model_path:str = DEFAULT_OUTPUT_MODEL_PATH) -> LRM:
+    """ TODO: commenting.
 
     Args:
         spark (`SparkSession`): Spark session processing the data.
@@ -51,34 +45,28 @@ def etl(spark: SparkSession, input_path:str,
     """
 
     # read in the datasets
-    PRINT.print_script_header('reading in the raw datasets')
-    data_dict = READ.read_data(spark, input_path)
+    PRINT.print_script_header('reading in the raw transactions')
+    transaction_df = READ.read_all_transactions(spark, input_path)
+    consumer_fraud_df = READ.read_consumer_fraud(spark, input_path)
 
-    logger.debug(f'Added datasets: {data_dict.keys()}')
+    print(consumer_fraud_df.head(5))
 
-    # summaries of the datasets
-    PRINT.print_script_header('summary information')
-    PRINT.print_dataset_summary(data_dict)
+    # compute aggregate daily table
+    PRINT.print_script_header('aggregating the transactions by day by merchant')
+    daily_consumer_fraud_df = AGG.compute_known_consumer_fraud(
+        spark, transaction_df, consumer_fraud_df
+    )
 
-    # clean the data
-    PRINT.print_script_header('cleaning the data')
-    CLEAN.clean_data(spark, data_dict)
-    PRINT.print_dataset_summary(data_dict, 
-        ['transactions', 'merchants', 'merchant_tags'])
+    PRINT.print_script_header('generate the linear regression')
+    fraud_lrm = MODEL.generate_model(daily_consumer_fraud_df)
 
-    # compute aggregate tables
-    PRINT.print_script_header('aggregating the data')
-    AGG.compute_aggregates(spark, data_dict)
-    PRINT.print_dataset_summary(data_dict, 
-        ['merchant_sales', 'customer_accounts', 'customer_transactions'])
-
-    logger.info('I will now save all the data unless the output path is None.')
+    logger.info('I will now save the model unless the output path is None.')
     
     if output_path is not None:
         PRINT.print_script_header('saving the data')
-        WRITE.write_data(data_dict, output_path)
+        WRITE.write_model(fraud_lrm, output_path)
 
-    return data_dict
+    return fraud_lrm
 
 ################################################################################
 # Functionality to only run in script mode
@@ -97,15 +85,15 @@ if __name__ == '__main__':
         help='Whether to print debug statements.',
         action='store_true')
 
-    # data input
+    # data input folder
     parser.add_argument('-i', '--input', 
-        default=READ.DEFAULT_INPUT_PATH,
+        default=DEFAULT_INPUT_DATA_PATH,
         help='the folder where the data is stored.')
 
-    # output folder
+    # data output folder
     parser.add_argument('-o', '--output', 
-        default=WRITE.DEFAULT_OUTPUT_PATH,
-        help='the folder where the results are stored. Subdirectories may be created.')
+        default=DEFAULT_OUTPUT_MODEL_PATH,
+        help='the folder where the models are stored. Subdirectories may be created.')
 
     # ... TODO: Add to this as necessary
 
@@ -144,6 +132,6 @@ if __name__ == '__main__':
     ############################################################################
     # Run the ETL Process
     ############################################################################
-    output = etl(spark, input_path, output_path)    
+    output = model_fraud(spark, args.input, args.output)    
 
-    logger.info('ETL Complete!')
+    logger.info('Fraud Modelling Complete!')

@@ -23,22 +23,23 @@ from pyspark.sql import SparkSession, DataFrame
 from utilities.log_utilities import logger, file_handler
 import utilities.print_utilities as PRINT
 import utilities.read_utilities as READ
-import utilities.clean_utilities as CLEAN
-import utilities.agg_utilities as AGG
 import utilities.write_utilities as WRITE
+from utilities.model_utilities import DEFAULT_MODEL_PATH
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
-SPARK = True
-DEFAULT_INPUT_PATH = './data/tables' # where the raw data is
-DEFAULT_OUTPUT_PATH = './data/curated' # where the curated data is
+DEFAULT_INPUT_DATA_PATH = READ.DEFAULT_INPUT_DATA_PATH # where the raw data is
+DEFAULT_OUTPUT_DATA_PATH = WRITE.DEFAULT_OUTPUT_DATA_PATH # where the curated data is
+DEFAULT_INPUT_MODEL_PATH = DEFAULT_MODEL_PATH
 # ... TODO: Add to this as necessary
 
 ################################################################################
 # Define the ETL Process
 ################################################################################
-def etl(spark: SparkSession, input_path:str, 
-        output_path:str = DEFAULT_OUTPUT_PATH) -> 'defaultdict[str, DataFrame|None]':
+def etl(spark: SparkSession, model_path:str = DEFAULT_INPUT_MODEL_PATH, 
+        input_path:str = DEFAULT_INPUT_DATA_PATH, 
+        output_path:str = DEFAULT_INPUT_MODEL_PATH
+        ) -> 'defaultdict[str, DataFrame|None]':
     """ The whole etl process in one script.
 
     Args:
@@ -49,6 +50,9 @@ def etl(spark: SparkSession, input_path:str,
     Returns:
         defaultdict[str, `DataFrame` | None]: Output dictionary of datasets
     """
+
+    import utilities.clean_utilities as CLEAN
+    import utilities.agg_utilities as AGG
 
     # read in the datasets
     PRINT.print_script_header('reading in the raw datasets')
@@ -97,22 +101,24 @@ if __name__ == '__main__':
         help='Whether to print debug statements.',
         action='store_true')
 
-    # data input
+    # data input folder
     parser.add_argument('-i', '--input', 
-        default=READ.DEFAULT_INPUT_PATH,
+        default=DEFAULT_INPUT_DATA_PATH,
         help='the folder where the data is stored.')
 
-    # output folder
+    # model input folder
+    parser.add_argument('-m', '--model', 
+        default=DEFAULT_INPUT_MODEL_PATH,
+        help='the folder where the model is stored.')
+
+    # data output folder
     parser.add_argument('-o', '--output', 
-        default=WRITE.DEFAULT_OUTPUT_PATH,
+        default=DEFAULT_OUTPUT_DATA_PATH,
         help='the folder where the results are stored. Subdirectories may be created.')
 
     # ... TODO: Add to this as necessary
 
     args = parser.parse_args()
-
-    input_path = args.input
-    output_path = args.output
     
     # apply the logger level to logger
     if args.debug:
@@ -144,6 +150,6 @@ if __name__ == '__main__':
     ############################################################################
     # Run the ETL Process
     ############################################################################
-    output = etl(spark, input_path, output_path)    
+    output = etl(spark, args.model, args.input, args.output)    
 
     logger.info('ETL Complete!')
