@@ -32,7 +32,15 @@ AGGREGATION_FUNCTIONS = {
 
 def group_and_aggregate(df: DataFrame, group_cols: list, 
         agg_dict: dict, suffix: str = '') -> DataFrame:
+    """ Aggregating dataframe with specified groupby columns
 
+    Args:
+        df (`DataFrame`): Dataframe to be aggregated
+        group_cols (list): Features/Attributes to be grouped by
+        agg_dict (dict): Features and statistics to be aggregated by
+    Returns:
+        `DataFrame`: Aggregated `DataFrame` with relevant statistics
+    """  
     agg_cols = []
 
     if len(suffix) > 0:
@@ -64,6 +72,14 @@ def group_and_aggregate(df: DataFrame, group_cols: list,
     return df.groupby(*group_cols).agg(*agg_cols)
 
 def autocalculate_commission(df: DataFrame) -> DataFrame:
+    """ Calculating the commissions
+
+    Args:
+        df (`DataFrame`): Curated merchant dataset
+    Returns:
+        `DataFrame`: `DataFrame` with computed commissions
+    """
+
     add_cols = {}
     for colname in df.columns:
 
@@ -77,7 +93,15 @@ def autocalculate_commission(df: DataFrame) -> DataFrame:
     return df.withColumns(add_cols)
 
 def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
-    
+    """ Computing all data aggregations to generate required metrics
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        data_dict (defaultdict[str]): Dictionary to store aggregated datasets
+    Returns:
+        data_dict (defaultdict[str]): Dictionary to store aggregated datasets
+    """
+
     # Staging aggregates
     logger.info('Computing transactions_with_fraud')
     data_dict['*transactions_with_fraud'] = compute_transactions_with_fraud(
@@ -145,7 +169,15 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]'):
 
 def compute_daily_user_transactions(spark: SparkSession,
         transactions_df: DataFrame) -> DataFrame:
-    
+    """  Data aggregation to compute daily user transactions
+
+    Args:
+        df (`DataFrame`): Transaction dataset
+    Returns:
+        `DataFrame`: `DataFrame` that contains the total spending, average spending and number of orders
+            per user at a specific date
+    """         
+  
     return group_and_aggregate(
         transactions_df,
         ['user_id', 'order_datetime'],
@@ -164,6 +196,14 @@ def compute_daily_user_transactions(spark: SparkSession,
 
 def compute_transactions_with_fraud(spark: SparkSession,
         transactions_df:DataFrame) -> DataFrame:
+    """ Predicting the fraud rate of daily user transactions with our fraud rate model
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        transactions_df (`DataFrame`): Transactions dataset
+    Returns:
+        `DataFrame`: `DataFrame` with predicted fraud rate of transaction
+    """
 
     # TODO: add model path
     daily_user_transaction_df = compute_daily_user_transactions(
@@ -181,8 +221,13 @@ def compute_transactions_with_fraud(spark: SparkSession,
     
 def compute_merchant_daily_sales(spark: SparkSession, 
         transaction_with_fraud_df: DataFrame) -> DataFrame:
-    # TODO:Commenting here
+    """ Calculating total daily sales per merchant with fraud rate model
 
+    Args:
+        df (`DataFrame`): Curated transaction `DataFrame` with fraud rate model
+    Returns:
+        `DataFrame`: `DataFrame` which comprises of total daily sales revenue per merchant
+    """  
     return group_and_aggregate(
         transaction_with_fraud_df,
         ['merchant_abn', 'order_datetime'],
@@ -205,7 +250,13 @@ def compute_merchant_daily_sales(spark: SparkSession,
 
 def compute_merchant_monthly_sales(spark: SparkSession, 
         transaction_with_fraud_df: DataFrame) -> DataFrame:
+    """ Calculating monthly sales per merchant with fraud rate model
 
+    Args:
+        df (`DataFrame`): Curated transaction `DataFrame` with fraud rate model
+    Returns:
+        `DataFrame`: Resulting dataframe.
+    """ 
     return group_and_aggregate(
         transaction_with_fraud_df,
         [
@@ -236,7 +287,16 @@ def compute_merchant_monthly_sales(spark: SparkSession,
     
 def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame, 
         consumer_user_mapping_df: DataFrame) -> DataFrame:
-    
+    """ Mapping each user_id to consumer_id, which is required for merging of datasets
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        consumer_df (`DataFrame`): Consumer dataset
+        consumer_user_mapping_df (`DataFrame`): Dataset that contains consumer_id for each user_id
+    Returns:
+        `DataFrame`: Consumer raw `DataFrame` with an extra column user_id
+    """     
+
     return consumer_df.join(
         consumer_user_mapping_df,
         on = 'consumer_id'
@@ -245,7 +305,16 @@ def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame,
 def compute_customer_transactions(spark: SparkSession, 
         transactions_df: DataFrame,
         customer_accounts_df: DataFrame) -> DataFrame:
-    
+    """ Creates a dataframe that contains customer transaction information
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        transactions_df (`DataFrame`): Transactions dataset
+        customer_accounts_df (`DataFrame`): Customer accounts dataset
+    Returns:
+        `DataFrame`: Resulting dataframe.
+    """    
+
     return transactions_df.join(
         customer_accounts_df,
         on='user_id'
@@ -253,7 +322,16 @@ def compute_customer_transactions(spark: SparkSession,
 
 
 def compute_merchant_consumers(spark: SparkSession, transaction_df: DataFrame) -> DataFrame:
-    
+    """ Data aggregation, extracting information about total dollar spent and total orders per user for each merchant
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        transaction_df (`DataFrame`): Transaction dataset
+
+    Returns:
+        `DataFrame`: `Resulting dataframe.
+    """
+
     return group_and_aggregate(
         transaction_df,
         ['merchant_abn', 'user_id'],
@@ -271,8 +349,18 @@ def compute_merchant_consumers(spark: SparkSession, transaction_df: DataFrame) -
 
 
 def compute_consumer_regions(spark: SparkSession, consumer_df: DataFrame, 
-                            postcode_df: DataFrame, user_mapping: DataFrame) -> DataFrame:
-    
+                            postcode_df: DataFrame, user_mapping: DataFrame) -> DataFrame:   
+    """ Joining consumer dataset with external dataset, which is SA2 region level by postcode
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        consumer_df (`DataFrame`): Consumer dataset
+        postcode_df (`DataFrame`): External dataset (SA2 region)
+        user_mapping (`DataFrame`): Dataset that helps mapping user_id and consumer_id
+    Returns:
+        `DataFrame`: `Resulting dataframe.
+    """ 
+
     return consumer_df.select(
             ['consumer_id','postcode']
         ).join(
@@ -292,7 +380,17 @@ def compute_consumer_regions(spark: SparkSession, consumer_df: DataFrame,
 # if user has multiple SA2 region, find their mean weekly income
 def compute_region_incomes(spark: SparkSession, consumer_region_df: DataFrame,
                          census_df: DataFrame) -> DataFrame:
-    
+    """ Computing the median total personal weekly income per customer, based on the regions they're from
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        consumer_region_df (`DataFrame`): Dataset of consumers with their regions
+        census_df (`DataFrame`): Census dataset at SA2 region level
+
+    Returns:
+        `DataFrame`: `Resulting dataframe.
+    """ 
+       
     # Median imputation for user with missing weekly income
     imputer = Imputer(
         inputCols = ["avg_median_tot_prsnl_inc_weekly"],
@@ -341,7 +439,17 @@ def compute_region_incomes(spark: SparkSession, consumer_region_df: DataFrame,
     
 def compute_merchant_regions(spark: SparkSession, merchant_consumer_df: DataFrame,
                            consumer_region_df: DataFrame) -> DataFrame:
-    
+    """ Computing the number of distinct regions each merchant sells to
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        merchant_consumer_df (`DataFrame`): Joined transaction dataset that contains merchant and consumer info
+        consumer_region_df (`DataFrame`): Joined consumer dataset with external SA2 region level dataset
+
+    Returns:
+        `DataFrame`: `Resulting dataframe.
+    """
+
     return group_and_aggregate(
         merchant_consumer_df.select([
             'merchant_abn', 
@@ -372,7 +480,17 @@ def compute_merchant_regions(spark: SparkSession, merchant_consumer_df: DataFram
 
 def compute_merchant_customer_incomes(spark: SparkSession, merchant_consumer_df: DataFrame,
                            consumer_region_income_df: DataFrame) -> DataFrame:
-    
+    """ Computing the average median weekly income of the merchants' consumer base
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        merchant_consumer_df (`DataFrame`): Joined transaction dataset that contains merchant and consumer info
+        consumer_region_df (`DataFrame`): Joined consumer dataset with external SA2 region level dataset
+
+    Returns:
+        `DataFrame`: `Resulting dataframe.
+    """  
+
     return group_and_aggregate(
         merchant_consumer_df.select([
             'merchant_abn', 
@@ -406,7 +524,16 @@ def compute_merchant_customer_incomes(spark: SparkSession, merchant_consumer_df:
 
 def compute_returning_customers(spark: SparkSession, 
                                merchant_consumer_df: DataFrame) -> DataFrame:
-    
+    """ Computing the number of returning customers for each merchant
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        merchant_consumer_df (`DataFrame`): Joined transaction dataset that contains merchant and consumer info
+
+    Returns:
+        `DataFrame`: `Resulting dataframe.
+    """    
+
     return group_and_aggregate(
         merchant_consumer_df,
         ['merchant_abn'],
@@ -440,6 +567,15 @@ def compute_returning_customers(spark: SparkSession,
 
 def compute_vip_customers(spark: SparkSession, merchant_consumer_df: DataFrame,
                         merchant_returning_customer_df: DataFrame) -> DataFrame:
+    """ Computing the number of VIP customers for each merchant based on a few criteria
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        merchant_consumer_df (`DataFrame`): Joined transaction dataset that contains merchant and consumer info
+        merchant_returning_customer_df (`DataFrame`): Merchant dataset with returning customers column
+    Returns:
+        `DataFrame`: `Resulting dataframe.
+    """
 
     return group_and_aggregate(
         merchant_consumer_df.join(
@@ -490,7 +626,17 @@ def compute_merchant_metrics(spark: SparkSession, merchant_df: DataFrame,
         transaction_with_fraud_df: DataFrame,
         merchant_daily_sales_df: DataFrame, 
         merchant_monthly_sales_df: DataFrame) -> DataFrame:
-    
+    """ Computing metrics to determine the ranking of merchants
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        merchant_df (`DataFrame`): Merchant dataset
+        transaction_with_fraud_df (`DataFrame`): Transaction dataset with fraud probability
+        merchant_daily_sales_df (`DataFrame`): Merchant dataset with total daily sales per merchant with fraud rate model
+        merchant_monthly_sales_df_df (`DataFrame`): Merchant dataset with total monthly sales per merchant with fraud rate model
+    Returns:
+        `DataFrame`: Dataframe with metrics generated.
+    """    
     # first, get overall/per order statistics
     logger.info('first, get overall/per order statistics')
     merchant_per_order_sales_df = group_and_aggregate(
@@ -694,6 +840,18 @@ def compute_final_merchant_statistics(spark: SparkSession,
         merchant_customer_incomes: DataFrame, 
         merchant_returning_customers: DataFrame,
         merchant_vip_customers: DataFrame) -> DataFrame:
+    """ A finalizing dataframe that contains all required metrics for merchant ranking
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        merchant_metrics (`DataFrame`): Incomplete metrics dataset
+        merchant_region_counts (`DataFrame`): Merchant dataset with number of regions each merchant sells to
+        merchant_customer_incomes (`DataFrame`): Merchant dataset with 
+        merchant_returning_customers (`DataFrame`): Merchant dataset with average median weekly income of the merchants' consumer base
+        merchant_vip_customer (`DataFrame`): Merchant dataset with number of vip customers for each merchant
+    Returns:
+        `DataFrame`: Resulting dataframe.
+    """ 
 
     # Join all metrics to form curated merchant dataset
     return merchant_metrics.join(
