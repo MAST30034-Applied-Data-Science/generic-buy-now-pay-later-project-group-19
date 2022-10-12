@@ -41,7 +41,10 @@ def clean_data(spark: SparkSession,
     data_dict = remove_transaction_outliers(spark, data_dict)
     data_dict = extract_merchant_tags(spark, data_dict)
     return data_dict
-
+    
+def remove_null_values(df: DataFrame, colname: str) -> DataFrame:
+    # TODO: commenting
+    return df.where(F.col(colname).isNotNull())
 
 def remove_transaction_outliers(spark: SparkSession, 
         data_dict: 'defaultdict[str]') -> 'defaultdict[str]':
@@ -130,10 +133,11 @@ def extract_merchant_tags(spark: SparkSession,
     # Join the vectorizer with merchant data
     count_vect_df = pd.DataFrame(X.todense(), 
         columns=["_".join(col.split()) for col in vectorizer.get_feature_names()])
-    data_dict['merchants'] = spark.createDataFrame(
+    data_dict['merchants_with_tags'] = spark.createDataFrame(
         pd.concat([merchants_df, count_vect_df], axis=1)\
             .drop(['tags','tag'], axis=1)
     )
+    data_dict['merchants'] = spark.createDataFrame(merchants_df)
     data_dict['merchant_tags'] = merchants_df["tag"]
 
     return data_dict
@@ -189,7 +193,7 @@ class MerchantPreprocessor:
             #correct spelling
             new_tag = [self.__correct_spelling__(text) for text in new_tag ]
         
-            stop word removal
+            # stop word removal
             new_tag = [text for text in new_tag if text not in self.stopwords]
 
             #lemmatization

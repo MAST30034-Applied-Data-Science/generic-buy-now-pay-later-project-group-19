@@ -17,7 +17,15 @@ DEFAULT_OUTPUT_PATH = './data/curated' # where the curated data will be stored
 def write_data(data_dict: 'defaultdict[str]', 
         data_path: str = DEFAULT_OUTPUT_PATH):
 
+    # ensure that the path exists
+    if not os.path.exists(data_path):
+        logger.info(f'`{data_path}` does not exist. Creating the `{data_dict}` directory.')
+        os.mkdir(data_path)
+
     for dataset_name, data in data_dict.items():
+
+        # don't save this dataset 
+        if dataset_name[0] == '*': continue
 
         # filename to save the dataset with
         save_name = f'{data_path}/{dataset_name}'
@@ -39,4 +47,4 @@ def write_data(data_dict: 'defaultdict[str]',
         else: 
             logger.error(
                 'you\'ve given me a file format I don\'t know how to save.'
-                + ' How does this even happen? ' + str(type(data)))
+                + ' Given type: ' + str(type(data)))
