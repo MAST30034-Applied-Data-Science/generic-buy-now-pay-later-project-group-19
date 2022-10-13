@@ -16,10 +16,30 @@ DEFAULT_FRAUD_MODEL_NAME = 'fraud_regression'
 
 def read_model(model_path: str = DEFAULT_MODEL_PATH,
         model_name: str = DEFAULT_FRAUD_MODEL_NAME) -> LR:
+    """ Read a linear model.
+
+    Args:
+        model_path (str, optional): Model folder path. Defaults to `./models`.
+        model_name (str, optional): Name of the model to read. Defaults to 'fraud_regression'.
+
+    Returns:
+        `LinearRegression`: The linear regression.
+    """
+
     return LRM.load(f'{model_path}/{model_name}')
+
 
 def predict_fraud(daily_user_transaction_df: DataFrame,
         model_path: str = DEFAULT_MODEL_PATH) -> DataFrame:
+    """ Predict the fraud for a daily user transaction dataset.
+
+    Args:
+        daily_user_transaction_df (`DataFrame`): As the name implies.
+        model_path (str, optional): Model folder path. Defaults to `./models`.
+
+    Returns:
+        `DataFrame`: The `daily_user_transaction_df` with fraud_provavilities assigned.
+    """
 
     # define important col names
     feature_vector = DEFAULT_FRAUD_FEATURE_COLNAME
@@ -42,7 +62,16 @@ def predict_fraud(daily_user_transaction_df: DataFrame,
 
     return daily_user_transaction_df 
 
-def generate_model(daily_user_transaction_df: DataFrame) -> LR:
+
+def generate_fraud_model(daily_user_transaction_df: DataFrame) -> LR:
+    """ Generate the fraud linear regression.
+
+    Args:
+        daily_user_transaction_df (`DataFrame`): As the name implies.
+
+    Returns:
+        `LinearRegression`: The linear regression.
+    """
     input_cols = ['tot_dollar_value', 'avg_dollar_value']
 
     # assemble the data into a vector format
@@ -63,5 +92,13 @@ def generate_model(daily_user_transaction_df: DataFrame) -> LR:
 
 def write_model(model: LR, output_path: str = DEFAULT_MODEL_PATH,
     model_name: str = 'fraud_regression'):
+    """_summary_
+
+    Args:
+        model (LR): _description_
+        output_path (str, optional): _description_. Defaults to DEFAULT_MODEL_PATH.
+        model_name (str, optional): _description_. Defaults to 'fraud_regression'.
+    """
+
     save_path = f'{output_path}/{model_name}'
     model.write().overwrite().save(save_path)

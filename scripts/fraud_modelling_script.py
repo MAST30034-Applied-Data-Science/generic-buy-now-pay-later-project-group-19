@@ -11,7 +11,7 @@ import argparse
 
 # External Libraries
 from pyspark.sql import SparkSession, DataFrame
-from pyspark.ml.regression import LinearRegressionModel as LRM
+from pyspark.ml.regression import LinearRegression as LR
 # ... TODO: Add to this as necessary
 
 # Our Modules
@@ -32,7 +32,7 @@ DEFAULT_OUTPUT_MODEL_PATH = MODEL.DEFAULT_MODEL_PATH
 # Define the ETL Process
 ################################################################################
 def model_fraud(spark: SparkSession, input_path:str = DEFAULT_INPUT_DATA_PATH, 
-        model_path:str = DEFAULT_OUTPUT_MODEL_PATH) -> LRM:
+        model_path:str = DEFAULT_OUTPUT_MODEL_PATH) -> LR:
     """ TODO: commenting.
 
     Args:
@@ -41,15 +41,19 @@ def model_fraud(spark: SparkSession, input_path:str = DEFAULT_INPUT_DATA_PATH,
         model_path (str): Path where resulting fraud model will be saved.
 
     Returns:
-        defaultdict[str, `DataFrame` | None]: Output dictionary of datasets
+        `LinearRegression`: Output fraud model.
     """
 
     # read in the datasets
     PRINT.print_script_header('reading in the raw transactions')
+    
     transaction_df = READ.read_all_transactions(spark, input_path)
-    consumer_fraud_df = READ.read_consumer_fraud(spark, input_path)
+    logger.info(f'Read {transaction_df.count()} transaction entries')
+    logger.debug(transaction_df.head(5))
 
-    print(consumer_fraud_df.head(5))
+    consumer_fraud_df = READ.read_consumer_fraud(spark, input_path)
+    logger.info(f'Read {consumer_fraud_df.count()} consumer fraud entries')
+    logger.debug(consumer_fraud_df.head(5))
 
     # compute aggregate daily table
     PRINT.print_script_header('aggregating the transactions by day by merchant')
@@ -58,15 +62,15 @@ def model_fraud(spark: SparkSession, input_path:str = DEFAULT_INPUT_DATA_PATH,
     )
 
     PRINT.print_script_header('generate the linear regression')
-    fraud_lrm = MODEL.generate_model(daily_consumer_fraud_df)
+    fraud_lr = MODEL.generate_fraud_model(daily_consumer_fraud_df)
 
     logger.info('I will now save the model unless the output path is None.')
     
-    if output_path is not None:
+    if model_path is not None:
         PRINT.print_script_header('saving the data')
-        WRITE.write_model(fraud_lrm, output_path)
+        WRITE.write_model(fraud_lr, model_path)
 
-    return fraud_lrm
+    return fraud_lr
 
 ################################################################################
 # Functionality to only run in script mode
@@ -93,14 +97,10 @@ if __name__ == '__main__':
     # data output folder
     parser.add_argument('-o', '--output', 
         default=DEFAULT_OUTPUT_MODEL_PATH,
-        help='the folder where the models are stored. Subdirectories may be created.')
+        help='the folder where the model is stored. Subdirectories may be created.')
 
-    # ... TODO: Add to this as necessary
-
+    # Parse arguments as necessary
     args = parser.parse_args()
-
-    input_path = args.input
-    output_path = args.output
     
     # apply the logger level to logger
     if args.debug:

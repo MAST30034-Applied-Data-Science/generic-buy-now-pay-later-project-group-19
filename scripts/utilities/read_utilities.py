@@ -1,6 +1,5 @@
 ''' Provides functions to read the datasets.
 '''
-
 from collections import defaultdict
 import io
 import os
@@ -50,7 +49,7 @@ def read_data(spark: SparkSession,
     Args:
         spark (`SparkSession`): Spark session reading the data.
         data_path (str, optional): Path where the raw data is stored. 
-            Defaults to `../data/path` (the relative location from script locations).
+            Defaults to `./data/path` (the relative location from script locations).
 
     Returns:
         defaultdict[str, `DataFrame` | None]: Output dictionary of datasets
@@ -113,7 +112,7 @@ def read_consumers(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_PATH
 
     Args:
         spark (`SparkSession`): Spark session reading the data.
-        data_path (str, optional): Path to all data. Defaults to '../data/tables'.
+        data_path (str, optional): Path to all data. Defaults to './data/tables'.
         filename (str, optional): The filename to read. Defaults to 'tbl_consumer.csv'.
 
     Returns:
@@ -133,7 +132,7 @@ def read_consumer_user_mappings(spark: SparkSession,
 
     Args:
         spark (`SparkSession`): Spark session reading the data.
-        data_path (str, optional): Path to all data. Defaults to '../data/tables'.
+        data_path (str, optional): Path to all data. Defaults to './data/tables'.
         filename (str, optional): The filename to read. Defaults to 'consumer_user_details.parquet'.
 
     Returns:
@@ -143,8 +142,17 @@ def read_consumer_user_mappings(spark: SparkSession,
 
 def read_all_transactions(spark: SparkSession, 
         data_path: str = DEFAULT_INPUT_DATA_PATH) -> DataFrame:
-    # TODO: COMMENTING
+    """ Reading only all the transactions dataframes in one go
 
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        data_path (str, optional): Path to all data. Defaults to './data/tables'.
+
+    Returns:
+        `DataFrame`: Resulting dataframe.
+    """
+
+    # init an empty df
     output_df = None
 
     # iterate through the filenames in the raw data path
@@ -166,7 +174,7 @@ def read_transactions(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_P
 
     Args:
         spark (`SparkSession`): Spark session reading the data.
-        data_path (str, optional): Path to all data. Defaults to '../data/tables'.
+        data_path (str, optional): Path to all data. Defaults to './data/tables'.
         folder (str, optional): The folder to read. Defaults to 'transactions_20210228_20210827_snapshot'.
         
     Returns:
@@ -176,39 +184,15 @@ def read_transactions(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_P
     # output df
     out_df = None
 
-    try:
+    try: # this should work for 99% of people
 
         logger.debug('Trying to read transactions the nice way.')
-
         out_df = spark.read.parquet(f'{data_path}/{folder}').withColumn(
             'order_datetime', 
             F.date_format('order_datetime', "yyyy-MM-dd")
         )
-# date_format(col("vacationdate"), "dd-MM-YYYY"
-        # iterate over the subfolders in the transactions folder (ignore non-subfolder paths)
-        # for subfolder in os.listdir(f'{data_path}/{folder}'):
-        #     if not os.path.isdir(f'{data_path}/{folder}/{subfolder}'): continue
-
-        #     # iterate over the files in the order_datetime subfolder
-        #     for filename in os.listdir(f'{data_path}/{folder}/{subfolder}'):
-
-        #         # skip if the file is not a parquet file
-        #         if filename.split('.')[-1] != 'parquet': continue
-
-        #         # read in this subfolder parquet
-        #         temp_df = spark.read.parquet(
-        #             f'{data_path}/{folder}/{subfolder}/{filename}')
-
-        #         # add the order_datetime as a column
-        #         order_datetime = subfolder.split('=')[-1]
-        #         temp_df = temp_df.withColumn('order_datetime', 
-        #             F.lit(order_datetime))
-        #             # F.lit(datetime.strptime(order_datetime, '%Y-%m-%d')))
-
-        #         # add this to the output
-        #         out_df = union_or_create(out_df, temp_df)
         
-    except: # specifically for and by Tommy (the rest of the group doesn't activate this code)
+    except: # specifically for and by Tommy (the rest of the group shouldn't activate this code)
 
         logger.error('''Something went wrong with reading transactions,''' 
         + ''' so I'm using Tommy's method. If you're not Tommy,'''
@@ -276,7 +260,7 @@ def read_merchants(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_PATH
 
     Args:
         spark (`SparkSession`): Spark session reading the data.
-        data_path (str, optional): Path to all data. Defaults to '../data/tables'.
+        data_path (str, optional): Path to all data. Defaults to './data/tables'.
         filename (str, optional): The filename to read. Defaults to 'tbl_merchants.parquet'.
         
     Returns:
@@ -303,32 +287,35 @@ def read_postcodes(spark: SparkSession):
 def read_census(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_PATH,
         filename: str = 'SA2/AUS/2021Census_G02_AUST_SA2.csv'):
     """ Read the external SA2 Census (2021) dataset.
-    TODO: if there's time, add automatic downloading [based on a given year].
 
     Args:
         spark (`SparkSession`): Spark session reading the data.
-        data_path (str, optional): Path to all data. Defaults to '../data/tables'.
+        data_path (str, optional): Path to all data. Defaults to './data/tables'.
         filename (str, optional): The filename to read. Defaults to 'SA2/AUS/2021Census_G02_AUST_SA2.csv'.
 
     Returns:
         `DataFrame`: Resulting dataframe.
     """
+    # read the census data
     census_df = spark.read.csv(f'{data_path}/{filename}', header = True)
     census_df = census_df.select([
         F.col(colname).alias(colname.lower()) for colname in census_df.columns
     ])
 
+    # get the column for the sa2 codes
     sa2_code_colname = ''
     for colname in census_df.columns:
         if re.search(r'sa2_code_\d{4}', colname.lower()) is not None:
             logger.debug(f'The SA2 colname is "{colname}"')
             sa2_code_colname = colname.lower()
             
+    # conver the sa2 codes to integer types
     census_df = census_df.withColumn(
         sa2_code_colname, 
         census_df[sa2_code_colname].cast(IntegerType())
     )
 
+    # make the column names all lowercase and rename the sa2 code column
     return census_df.select([
         F.col(colname).alias(colname.lower()) for colname in census_df.columns
     ]).withColumnRenamed(sa2_code_colname, 'sa2_code')
@@ -336,6 +323,16 @@ def read_census(spark: SparkSession, data_path: str = DEFAULT_INPUT_DATA_PATH,
 def read_consumer_fraud(spark: SparkSession, 
         data_path: str = DEFAULT_INPUT_DATA_PATH,
         filename: str = 'consumer_fraud_probability.csv'):
+    """ Read consumer fraud data.
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        data_path (str, optional): Path to all data. Defaults to './data/tables'.
+        filename (str, optional): The filename to read. Defaults to 'consumer_fraud_probability.csv'.
+
+    Returns:
+        _type_: _description_
+    """
 
     return spark.read.csv(
             f'{data_path}/{filename}', 
@@ -348,6 +345,16 @@ def read_consumer_fraud(spark: SparkSession,
 def read_merchant_fraud(spark: SparkSession, 
         data_path: str = DEFAULT_INPUT_DATA_PATH,
         filename: str = 'merchant_fraud_probability.csv'):
+    """ Read merchant fraud data.
+
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        data_path (str, optional): Path to all data. Defaults to './data/tables'.
+        filename (str, optional): The filename to read. Defaults to 'merchant_fraud_probability.csv'.
+
+    Returns:
+        _type_: _description_
+    """
 
     return spark.read.csv(
             f'{data_path}/{filename}', 

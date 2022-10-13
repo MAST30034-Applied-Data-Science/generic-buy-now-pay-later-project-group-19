@@ -52,7 +52,15 @@ def write_data(data_dict: 'defaultdict[str]',
                 'you\'ve given me a file format I don\'t know how to save.'
                 + ' Given type: ' + str(type(data)))
 
-def write_model(model: LR, output_path: str = DEFAULT_MODEL_PATH,
-    model_name: str = 'fraud_regression'):
-    save_path = f'{output_path}/{model_name}'
+def write_model(model: LR, model_path: str = DEFAULT_MODEL_PATH,
+        model_name: str = 'fraud_regression'):
+    """ Save a linear regression.
+
+    Args:
+        model (`LinearRegression`): The linear regression to save.
+        model_path (str, optional): Model folder path. Defaults to `./models`.
+        model_name (str, optional): Name of the model. Defaults to 'fraud_regression'.
+    """
+
+    save_path = f'{model_path}/{model_name}'
     model.write().overwrite().save(save_path)

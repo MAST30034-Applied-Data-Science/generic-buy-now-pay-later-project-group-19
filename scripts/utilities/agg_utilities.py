@@ -30,6 +30,7 @@ AGGREGATION_FUNCTIONS = {
     )
 }
 
+
 def group_and_aggregate(df: DataFrame, group_cols: list, 
         agg_dict: dict, suffix: str = '') -> DataFrame:
     """ Aggregating dataframe with specified groupby columns
@@ -46,30 +47,37 @@ def group_and_aggregate(df: DataFrame, group_cols: list,
     if len(suffix) > 0:
         suffix = f'_{suffix}'
 
+    # iterate on the columns to aggregate (and functions to use)
     for colname, agg_funcs in agg_dict.items():
-        print(colname)
+        logger.debug(f'Aggregating {colname} with: ')
         for func_or_name in agg_funcs:
-            print(func_or_name)
+            logger.debug(f'\t - {func_or_name}')
+
+            # by default assume it's an error column
             prefix = 'ERROR'
             func = lambda _: F.lit('ERROR')
 
+            # determine the function (which is either a string or F function)
             if type(func_or_name) == str:
                 prefix, func = AGGREGATION_FUNCTIONS[func_or_name]
             else:
                 prefix, func = func_or_name
 
+            # determing the prefix (don't chain the same prefix eg. 'tot_tot_')
             if colname[0:len(prefix)] == prefix or len(prefix) == 0:
                 prefix = ''
             else:
                 prefix = f'{prefix}_'
 
+            # append the function to the aggregation columns list
             agg_cols.append(
                 func(colname).alias(f'{prefix}{colname}{suffix}')
             )
 
-    print(agg_cols)
+    logger.info(f'Perform these aggregations: {agg_cols}')
 
     return df.groupby(*group_cols).agg(*agg_cols)
+
 
 def autocalculate_commission(df: DataFrame) -> DataFrame:
     """ Calculating the commissions
@@ -92,6 +100,7 @@ def autocalculate_commission(df: DataFrame) -> DataFrame:
 
     return df.withColumns(add_cols)
 
+
 def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]',
         model_path: str = DEFAULT_MODEL_PATH):
     """ Computing all data aggregations to generate required metrics
@@ -99,7 +108,7 @@ def compute_aggregates(spark: SparkSession, data_dict: 'defaultdict[str]',
     Args:
         spark (`SparkSession`): Spark session reading the data.
         data_dict (defaultdict[str]): Dictionary to store aggregated datasets
-        model_path (str): Path of models folder. Defaults to `../models`
+        model_path (str): Path of models folder. Defaults to `./models`
     Returns:
         data_dict (defaultdict[str]): Dictionary to store aggregated datasets
     """
@@ -189,12 +198,6 @@ def compute_daily_user_transactions(spark: SparkSession,
         }
     )
 
-    return transactions_df.groupby(['user_id', 'order_datetime']) \
-        .agg(
-            F.sum('dollar_value').alias('total_value'),
-            F.count('order_id').alias('num_orders'),
-            F.mean('dollar_value').alias('avg_order_value')
-        )
 
 def compute_known_consumer_fraud(spark: SparkSession, 
         transaction_df:DataFrame, consumer_fraud_df: DataFrame,
@@ -217,6 +220,7 @@ def compute_known_consumer_fraud(spark: SparkSession,
         on=["user_id","order_datetime"],
         how='inner'
     )
+
 
 def compute_transactions_with_fraud(spark: SparkSession, 
         transaction_df: DataFrame, 
@@ -245,6 +249,7 @@ def compute_transactions_with_fraud(spark: SparkSession,
         'discounted_value',
         (1 / 100) * (100 - F.col('fraud_prob')) * F.col('dollar_value'),
     )
+
     
 def compute_merchant_daily_sales(spark: SparkSession, 
         transaction_with_fraud_df: DataFrame) -> DataFrame:
@@ -266,14 +271,6 @@ def compute_merchant_daily_sales(spark: SparkSession,
         }
     )
 
-    return transaction_with_fraud_df \
-        .groupby(['merchant_abn', 'order_datetime']) \
-        .agg(
-            F.sum('dollar_value').alias('sales_revenue'),
-            F.count('order_id').alias('num_orders'),
-            F.sum('discounted_value').alias('discounted_sales_revenue'),
-            (F.sum('fraud_prob') / 100).alias('approximate_fraudulent_orders')
-        )
 
 def compute_merchant_monthly_sales(spark: SparkSession, 
         transaction_with_fraud_df: DataFrame) -> DataFrame:
@@ -298,20 +295,8 @@ def compute_merchant_monthly_sales(spark: SparkSession,
             'num_fraud_order': [('', lambda colname: F.sum('fraud_prob') / 100)]
         }
     )
+    
 
-    return transaction_with_fraud_df \
-        .groupby([
-            'merchant_abn', 
-            F.month('order_datetime').alias('order_month'),
-            F.year('order_datetime').alias('order_year')]) \
-        .agg(
-            F.sum('dollar_value').alias('sales_revenue'),
-            F.count('order_id').alias('num_orders'),
-            F.sum('discounted_value').alias('discounted_sales_revenue'),
-            (F.sum('fraud_prob') / 100).alias('approximate_fraudulent_orders')
-        )
-    
-    
 def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame, 
         consumer_user_mapping_df: DataFrame) -> DataFrame:
     """ Mapping each user_id to consumer_id, which is required for merging of datasets
@@ -328,6 +313,7 @@ def compute_customer_accounts(spark: SparkSession, consumer_df: DataFrame,
         consumer_user_mapping_df,
         on = 'consumer_id'
     )
+
 
 def compute_customer_transactions(spark: SparkSession, 
         transactions_df: DataFrame,
@@ -367,12 +353,6 @@ def compute_merchant_consumers(spark: SparkSession, transaction_df: DataFrame) -
             'order_id': ['count']
         }
     )
-    
-    return transaction_df \
-        .groupby(['merchant_abn', 'user_id']) \
-        .agg({'dollar_value':'sum', 'order_id':'count'}) \
-        .withColumnRenamed('sum(dollar_value)', 'dollar_spent') \
-        .withColumnRenamed('count(order_id)', 'num_orders')
 
 
 def compute_consumer_regions(spark: SparkSession, consumer_df: DataFrame, 
@@ -403,11 +383,12 @@ def compute_consumer_regions(spark: SparkSession, consumer_df: DataFrame,
             'left'
         )
 
-# Join user region with region median income, 
-# if user has multiple SA2 region, find their mean weekly income
+
 def compute_region_incomes(spark: SparkSession, consumer_region_df: DataFrame,
                          census_df: DataFrame) -> DataFrame:
     """ Computing the median total personal weekly income per customer, based on the regions they're from
+    Join user region with region median income, 
+    if user has multiple SA2 region, find their mean weekly income
 
     Args:
         spark (`SparkSession`): Spark session reading the data.
@@ -475,18 +456,6 @@ def compute_merchant_regions(spark: SparkSession, merchant_consumer_df: DataFram
         }
     )
 
-    return merchant_consumer_df.select([
-            'merchant_abn', 
-            'user_id'
-        ]).join(
-            consumer_region_df, 
-            'user_id', 
-            'left'
-        ).groupby(
-            'merchant_abn'
-        ).agg(
-            F.countDistinct('sa2_code').alias('sa2_region_count')
-        )
 
 def compute_merchant_customer_incomes(spark: SparkSession, merchant_consumer_df: DataFrame,
                            consumer_region_income_df: DataFrame) -> DataFrame:
@@ -519,18 +488,6 @@ def compute_merchant_customer_incomes(spark: SparkSession, merchant_consumer_df:
         'median_weekly_income'
     )
 
-    return merchant_consumer_df.select([
-            'merchant_abn', 
-            'user_id'
-        ]).join(
-            consumer_region_income_df, 
-            'user_id', 
-            'left'
-        ).groupby(
-            'merchant_abn'
-        ).agg(
-            F.mean('median_weekly_income').alias('median_customer_income')
-        )
 
 def compute_returning_customers(spark: SparkSession, 
                                merchant_consumer_df: DataFrame) -> DataFrame:
@@ -560,19 +517,6 @@ def compute_returning_customers(spark: SparkSession,
         },
         'customers'
     )
-
-    return merchant_consumer_df.groupby(
-            'merchant_abn'
-        ).agg(
-            F.count(
-                    F.when(F.col('num_orders')>2, True)
-                ).alias(
-                    'returning_customers'
-                ),
-            F.count_distinct('user_id').alias('unique_customers'),
-            F.mean('dollar_spent').alias('mean_spending'),
-            F.stddev('dollar_spent').alias('std_spending')
-        )
 
 
 def compute_vip_customers(spark: SparkSession, merchant_consumer_df: DataFrame,
@@ -614,23 +558,6 @@ def compute_vip_customers(spark: SparkSession, merchant_consumer_df: DataFrame,
         }
     )
 
-    return merchant_consumer_df.join(
-            merchant_returning_customer_df, 
-            'merchant_abn',
-            'left'
-        ).groupby(
-            'merchant_abn'
-        ).agg(
-            F.count(
-                F.when(
-                    (F.col('dollar_spent') > 100) &
-                    (F.col('dollar_spent') > F.col('mean_spending') + 2 * F.col('std_spending')),
-                    True
-                )
-            ).alias(
-                'vip_customers'
-            )
-        )
 
 def compute_merchant_metrics(spark: SparkSession, merchant_df: DataFrame, 
         transaction_with_fraud_df: DataFrame,
@@ -647,6 +574,11 @@ def compute_merchant_metrics(spark: SparkSession, merchant_df: DataFrame,
     Returns:
         `DataFrame`: Dataframe with metrics generated.
     """    
+
+    # Developer's note:
+    # this function should be broken up,
+    # but due to time constraints, I've decided against it.
+
     # first, get overall/per order statistics
     logger.info('first, get overall/per order statistics')
     merchant_per_order_sales_df = group_and_aggregate(
@@ -668,6 +600,7 @@ def compute_merchant_metrics(spark: SparkSession, merchant_df: DataFrame,
     )
 
     # This part is taking a while 
+    # calculate the number of days
     date_range = merchant_daily_sales_df.select(F.min("order_datetime"), 
                                        F.max("order_datetime")
                                       ).first()
@@ -693,20 +626,6 @@ def compute_merchant_metrics(spark: SparkSession, merchant_df: DataFrame,
         .crossJoin(
             merchant_df.select('merchant_abn')
         )
-    
-    num_months = max_date.month - min_date.month + 1
-    num_months += 12 * (max_date.year - min_date.year)
-
-    # assign the month range to each merchant
-    merchant_month_range_df = date_range_df \
-        .select(
-            F.month('order_datetime').alias('order_month'),
-            F.year('order_datetime').alias('order_year')
-        ).distinct() \
-        .crossJoin(
-            merchant_df.select('merchant_abn')
-        )
-
 
     logger.info('compute daily sales aggregates')
     merchant_daily_sales_df = group_and_aggregate(
@@ -724,6 +643,20 @@ def compute_merchant_metrics(spark: SparkSession, merchant_df: DataFrame,
         },
         'daily'
     )
+    
+    # calculate the number of months
+    num_months = max_date.month - min_date.month + 1
+    num_months += 12 * (max_date.year - min_date.year)
+
+    # assign the month range to each merchant
+    merchant_month_range_df = date_range_df \
+        .select(
+            F.month('order_datetime').alias('order_month'),
+            F.year('order_datetime').alias('order_year')
+        ).distinct() \
+        .crossJoin(
+            merchant_df.select('merchant_abn')
+        )
 
     logger.info('compute monthly sales aggregates')
     merchant_monthly_sales_df = group_and_aggregate(
@@ -742,6 +675,7 @@ def compute_merchant_metrics(spark: SparkSession, merchant_df: DataFrame,
         'monthly'
     )
 
+    # join all these aggregates and return them
     merchant_metrics_df = merchant_df.join(
         merchant_per_order_sales_df,
         on=["merchant_abn"],
