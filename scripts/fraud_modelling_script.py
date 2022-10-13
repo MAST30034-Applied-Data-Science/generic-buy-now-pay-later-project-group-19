@@ -38,7 +38,7 @@ def model_fraud(spark: SparkSession, input_path:str = DEFAULT_INPUT_DATA_PATH,
     Args:
         spark (`SparkSession`): Spark session processing the data.
         input_path (str): Path where the raw data is stored.
-        output_path (str): Path where the curated/output data will be saved.
+        model_path (str): Path where resulting fraud model will be saved.
 
     Returns:
         defaultdict[str, `DataFrame` | None]: Output dictionary of datasets
