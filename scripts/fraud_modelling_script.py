@@ -1,7 +1,4 @@
-script_description = """ Runs the whole ETL pipeline from one script file.
-Add all raw data to the `data/tables` folder. 
-Data not in this folder will not be read by this script unless explicitly defined.
-TODO: Add documentation of the steps here.
+script_description = """ Generates the fraud probability regression model.
 """
 
 # Python Libraries

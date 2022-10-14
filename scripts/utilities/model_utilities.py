@@ -1,5 +1,4 @@
 ''' Related to generating and using models for fraud prediction.
-TODO: commenting
 '''
 
 from pyspark.sql import DataFrame
@@ -10,9 +9,6 @@ from pyspark.ml.feature import VectorAssembler as VA
 DEFAULT_MODEL_PATH = './models' # where the raw data is
 DEFAULT_FRAUD_FEATURE_COLNAME = 'fraud_features'
 DEFAULT_FRAUD_MODEL_NAME = 'fraud_regression'
-
-# TODO: function to generate the model
-# TODO: add a flag to the ETL on whether to generate the model or simply not calculate fraud.
 
 def read_model(model_path: str = DEFAULT_MODEL_PATH,
         model_name: str = DEFAULT_FRAUD_MODEL_NAME) -> LR:

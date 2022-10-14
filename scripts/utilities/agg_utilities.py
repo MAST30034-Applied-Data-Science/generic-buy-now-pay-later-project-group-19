@@ -1,5 +1,4 @@
 ''' Provide functionality to aggregate datasets.
-TODO: commenting on this
 '''
 from collections import defaultdict
 from datetime import datetime
@@ -235,7 +234,6 @@ def compute_transactions_with_fraud(spark: SparkSession,
         `DataFrame`: `DataFrame` with predicted fraud rate of transaction
     """
 
-    # TODO: add model path
     daily_user_transaction_df = compute_daily_user_transactions(
         spark, transaction_df)
     daily_user_transaction_fraud_df = predict_fraud(daily_user_transaction_df,
