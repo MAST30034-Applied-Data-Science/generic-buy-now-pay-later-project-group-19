@@ -9,14 +9,16 @@ from pyspark.sql import DataFrame as SDF
 from pandas import DataFrame as PDF
 from pandas import Series as PS
 from geopandas import GeoDataFrame as GDF
+from pyspark.ml.regression import LinearRegression as LR
 
 from utilities.log_utilities import logger
+from utilities.model_utilities import DEFAULT_MODEL_PATH
 
-DEFAULT_OUTPUT_PATH = './data/curated' # where the curated data will be stored
+DEFAULT_OUTPUT_DATA_PATH = './data/curated' # where the curated data will be stored
 DONT_SAVE_PREFIX = 'DONT-SAVE-'
 
 def write_data(data_dict: 'defaultdict[str]', 
-        data_path: str = DEFAULT_OUTPUT_PATH):
+        data_path: str = DEFAULT_OUTPUT_DATA_PATH):
 
     # ensure that the path exists
     if not os.path.exists(data_path):
@@ -49,3 +51,16 @@ def write_data(data_dict: 'defaultdict[str]',
             logger.error(
                 'you\'ve given me a file format I don\'t know how to save.'
                 + ' Given type: ' + str(type(data)))
+
+def write_model(model: LR, model_path: str = DEFAULT_MODEL_PATH,
+        model_name: str = 'fraud_regression'):
+    """ Save a linear regression.
+
+    Args:
+        model (`LinearRegression`): The linear regression to save.
+        model_path (str, optional): Model folder path. Defaults to `./models`.
+        model_name (str, optional): Name of the model. Defaults to 'fraud_regression'.
+    """
+
+    save_path = f'{model_path}/{model_name}'
+    model.write().overwrite().save(save_path)

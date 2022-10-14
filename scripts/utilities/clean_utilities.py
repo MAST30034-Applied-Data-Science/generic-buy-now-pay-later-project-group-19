@@ -1,5 +1,4 @@
 ''' Provides functions to clean the datasets.
-TODO: Commenting run needed.
 '''
 
 from collections import defaultdict
@@ -131,6 +130,7 @@ def extract_merchant_tags(spark: SparkSession,
 
         return split_arr[0].lower()
 
+    # parse the values within the tags column
     merchants_df["tag"] = merchants_df.apply(
         lambda row: extract_merchant_tag_col(row.tags, "tags"), axis=1)
     merchants_df["revenue_level"] = merchants_df.apply(
