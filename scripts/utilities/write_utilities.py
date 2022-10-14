@@ -15,6 +15,7 @@ from utilities.log_utilities import logger
 from utilities.model_utilities import DEFAULT_MODEL_PATH
 
 DEFAULT_OUTPUT_DATA_PATH = './data/curated' # where the curated data will be stored
+DONT_SAVE_PREFIX = 'DONT-SAVE-'
 
 def write_data(data_dict: 'defaultdict[str]', 
         data_path: str = DEFAULT_OUTPUT_DATA_PATH):
@@ -27,7 +28,7 @@ def write_data(data_dict: 'defaultdict[str]',
     for dataset_name, data in data_dict.items():
 
         # don't save this dataset 
-        if dataset_name[0] == '*': continue
+        if dataset_name[:len(DONT_SAVE_PREFIX)] == DONT_SAVE_PREFIX: continue
 
         # filename to save the dataset with
         save_name = f'{data_path}/{dataset_name}'
