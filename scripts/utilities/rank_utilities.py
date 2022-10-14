@@ -1,5 +1,4 @@
 ''' Functions and utilities to rank data on different properties
-TODO: Further commenting
 '''
 import numpy as np
 import pandas as pd
