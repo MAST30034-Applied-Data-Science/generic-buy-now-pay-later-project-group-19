@@ -1,5 +1,4 @@
 ''' Provides functions to clean the datasets.
-TODO: Commenting run needed.
 '''
 
 from collections import defaultdict
@@ -29,32 +28,43 @@ from utilities.log_utilities import logger
 
 def clean_data(spark: SparkSession, 
         data_dict: 'defaultdict[str]') -> 'defaultdict[str]':
-    """ TODO: Commenting
-
+    """ Removing transaction outliers and extracting merchant tags (Splitting the tag column)
+   
     Args:
-        spark (SparkSession): _description_
-        data_dict (defaultdict[str]): _description_
+        spark (SparkSession): Spark session reading the data.
+        data_dict (defaultdict[str]): Dictionary of datasets to be cleaned
 
     Returns:
-        defaultdict[str]: _description_
+        defaultdict[str]: Dictionary of datasets that are cleaned
     """
+
     data_dict = remove_transaction_outliers(spark, data_dict)
     data_dict = extract_merchant_tags(spark, data_dict)
     return data_dict
     
 def remove_null_values(df: DataFrame, colname: str) -> DataFrame:
-    # TODO: commenting
+    """ Removing null values from dataset
+   
+    Args:
+        spark (SparkSession): Spark session reading the data.
+        df (`DataFrame`): Dataframe to manipulate
+        colname (str): Selected column to remove null values
+    Returns:
+        `DataFrame`: `Resulting dataframe.
+    """
+
     return df.where(F.col(colname).isNotNull())
 
 def remove_transaction_outliers(spark: SparkSession, 
         data_dict: 'defaultdict[str]') -> 'defaultdict[str]':
     """ Check outliers from the transaction dataset
+
     Args:
         data_dict (defaultdict[str]): transaction Spark DataFrame
     Returns:
         `DataFrame`: Resulting `DataFrame`
     """
-    
+
     logger.info('Removing transaction outliers')
 
     data_dict['transactions'] = data_dict['transactions'].withColumn(
@@ -93,6 +103,14 @@ def remove_transaction_outliers(spark: SparkSession,
 
 def extract_merchant_tags(spark: SparkSession, 
         data_dict: 'defaultdict[str]') -> 'defaultdict[str]':
+    """ There are 3 features in the raw merchant dataset, we will be extracting each of them.
+        3 features include: Tags, revenue level and take rate
+    Args:
+        spark (`SparkSession`): Spark session reading the data.
+        data_dict (defaultdict[str]): Merchant Spark DataFrame
+    Returns:
+        defaultdict[str]: Resulting `DataFrame`
+    """
 
     logger.info('Extracting merchant tags')
 
@@ -112,6 +130,7 @@ def extract_merchant_tags(spark: SparkSession,
 
         return split_arr[0].lower()
 
+    # parse the values within the tags column
     merchants_df["tag"] = merchants_df.apply(
         lambda row: extract_merchant_tag_col(row.tags, "tags"), axis=1)
     merchants_df["revenue_level"] = merchants_df.apply(
