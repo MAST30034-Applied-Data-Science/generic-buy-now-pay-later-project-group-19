@@ -4,6 +4,7 @@ script_description = """ Generates the fraud probability regression model.
 # Python Libraries
 import logging
 import argparse
+from collections import defaultdict
 # ... TODO: Add to this as necessary
 
 # External Libraries
@@ -21,21 +22,20 @@ import utilities.write_utilities as WRITE
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
-DEFAULT_INPUT_DATA_PATH = READ.DEFAULT_INPUT_DATA_PATH # where the raw data is
-DEFAULT_OUTPUT_MODEL_PATH = MODEL.DEFAULT_MODEL_PATH
+DEFAULT_INPUT_DATA_PATH = WRITE.DEFAULT_OUTPUT_PATH # where the raw data is
+DEFAULT_OUTPUT_RANK_PATH = WRITE.DEFAULT_RANKING_PATH
 # ... TODO: Add to this as necessary
 
 ################################################################################
 # Define the ETL Process
 ################################################################################
-def model_fraud(spark: SparkSession, input_path:str = DEFAULT_INPUT_DATA_PATH, 
-        model_path:str = DEFAULT_OUTPUT_MODEL_PATH) -> LR:
+def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH, 
+        rank_path:str = DEFAULT_OUTPUT_RANK_PATH) -> 'defaultdict[str]':
     """ TODO: commenting.
 
     Args:
-        spark (`SparkSession`): Spark session processing the data.
-        input_path (str): Path where the raw data is stored.
-        model_path (str): Path where resulting fraud model will be saved.
+        input_path (str): Path where the curated data is stored.
+        rank_path (str): Path where resulting rankings will be saved.
 
     Returns:
         `LinearRegression`: Output fraud model.
@@ -44,11 +44,11 @@ def model_fraud(spark: SparkSession, input_path:str = DEFAULT_INPUT_DATA_PATH,
     # read in the datasets
     PRINT.print_script_header('reading in the raw transactions')
     
-    transaction_df = READ.read_all_transactions(spark, input_path)
-    logger.info(f'Read {transaction_df.count()} transaction entries')
-    logger.debug(transaction_df.head(5))
+    merchant_statistics_df = READ.read_merchant_statistics(input_path)
+    logger.info(f'Read {merchant_statistics_df.count()} merchant entries')
+    logger.debug(merchant_statistics_df.head(5))
 
-    consumer_fraud_df = READ.read_consumer_fraud(spark, input_path)
+    segment_df = READ.read_segments(input_path)
     logger.info(f'Read {consumer_fraud_df.count()} consumer fraud entries')
     logger.debug(consumer_fraud_df.head(5))
 
@@ -64,8 +64,8 @@ def model_fraud(spark: SparkSession, input_path:str = DEFAULT_INPUT_DATA_PATH,
     logger.info('I will now save the model unless the output path is None.')
     
     if model_path is not None:
-        PRINT.print_script_header('saving the data')
-        WRITE.write_model(fraud_lr, model_path)
+        PRINT.print_script_header('saving the rankings')
+        WRITE.write_ranking(fraud_lr, rank_path)
 
     return fraud_lr
 
@@ -129,6 +129,6 @@ if __name__ == '__main__':
     ############################################################################
     # Run the ETL Process
     ############################################################################
-    output = model_fraud(spark, args.input, args.output)    
+    output = rank_merchants(args.input, args.output)    
 
     logger.info('Fraud Modelling Complete!')

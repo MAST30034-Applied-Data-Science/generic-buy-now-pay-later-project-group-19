@@ -44,6 +44,7 @@ def min_max_scale(column):
     if np.max(column) == np.min(column) : return np.ones((len(column), 1)) / 2
     else : return (column - np.min(column)) / (np.max(column) - np.min(column))
 
+
 def average_rank(df: DataFrame, colnames: 'list[str]', 
         rank_type: str = 'rank', weights: 'list[float]|None' = None,
         suffix: str = '') -> DataFrame:
@@ -64,3 +65,45 @@ def average_rank(df: DataFrame, colnames: 'list[str]',
     df[f'average_rank{suffix}'] = np.matrix(df[rank_colnames]) @ np.matrix(weights).T
 
     return df
+
+
+def bias_weights(all_columns: 'list[str]', bias_columns: 'list[str]', 
+    bias_multiplier: float = 2) -> 'list[str]':
+    """ Generate weights for ranking with a bias towards a certain set of columns.
+
+    Args:
+        all_columns (list[str]): The ordered list of columns to rank on.
+        bias_columns (list[str]): The columns for which to multiply the weight.
+        bias_multiplier (float, optional): How much to multiply the weights by. 
+            Defaults to 2.
+
+    Returns:
+        list[str]: Ordered list of weights for the columns with bias applied.
+    """
+
+    # determine current even weight
+    current_weight = 1 / len(all_columns)
+
+    # apply bias multiplier
+    bias_weight = bias_multiplier * current_weight
+
+    # calculate the new total biased weights
+    total_bias_weight = len(bias_columns) * bias_weight
+
+    if(total_bias_weight >= 1):
+        logger.error('Hey, that\'s too much of bias multiplier')
+        return None
+
+    # calculate the weights of the remaining values (should sum to 1)
+    new_remaining_weight = (1 - total_bias_weight)
+    new_remaining_weight /= (len(all_columns) - len(bias_columns))
+
+    # generate the list of weights
+    new_weights = []
+    for colname in all_columns:
+        if colname in bias_columns:
+            new_weights.append(bias_weight)
+        else: 
+            new_weights.append(new_remaining_weight)
+
+    return new_weights
