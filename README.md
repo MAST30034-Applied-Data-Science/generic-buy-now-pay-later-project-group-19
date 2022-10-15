@@ -34,7 +34,7 @@ The jupyter notebooks are under `notebook` folder.
 
 `deprecated research and methods` folder contains experimental methods that the team has researched and experimented. These methods were not implemented in the pipeline. 
 
-`Project Summary Notebook.ipynb` jupyter notebook 
+`Project Summary Notebook.ipynb` jupyter notebook is a thorough walk through of the challenges and findings we had in the development process.
 
 ## External Datasets
 External datasets are under `data/tables`. 
