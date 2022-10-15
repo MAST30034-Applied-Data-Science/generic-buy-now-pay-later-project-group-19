@@ -32,11 +32,9 @@ The ETL script can be run with arguments(optional):
 ## Notebooks
 The jupyter notebooks are under `notebook` folder.
 
-`Research` folder contains experimental methods that the team has researched and experimented. These methods were not implemented in the pipeline. 
+`deprecated research and methods` folder contains experimental methods that the team has researched and experimented. These methods were not implemented in the pipeline. 
 
-`Draft` folder contains the draft notebooks. The team experiment utilities in this folder before finalizing them.
-
-`Analysis` folder contains finalized notebooks. These notebooks show our insights we derive from the datasets.
+`Project Summary Notebook.ipynb` jupyter notebook 
 
 ## External Datasets
 External datasets are under `data/tables`. 
