@@ -1,5 +1,6 @@
 # Generic Buy Now, Pay Later Project (Group 19)
 
+[![Pyspark](https://img.shields.io/badge/Pyspark-v3.3.0-blue.svg)](https://spark.apache.org/docs/latest/api/python/getting_started/install.html)
 
 ## Student name & ID
 - Youngjun Cho (1075878)
