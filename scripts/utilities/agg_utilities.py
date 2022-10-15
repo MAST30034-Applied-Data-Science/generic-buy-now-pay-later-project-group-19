@@ -22,7 +22,7 @@ AGGREGATION_FUNCTIONS = {
     'average': ('avg', F.avg),
     'mean': ('avg', F.mean),
     'count': ('num', F.count),
-    'count_distinct': ('numd', F.count_distinct),
+    'count_distinct': ('numd', F.countDistinct),
     'stddev': ('stddev', F.stddev),
     'commission': (
         'commission',
