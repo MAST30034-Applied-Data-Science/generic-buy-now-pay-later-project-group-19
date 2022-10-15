@@ -66,9 +66,10 @@ def write_model(model: LR, model_path: str = DEFAULT_MODEL_PATH,
 
     save_path = f'{model_path}/{model_name}'
     model.write().overwrite().save(save_path)
+    
 
 
-def write_ranking(ranking_dict: 'defaultdict[str]',
-    ranking_path: DEFAULT_RANKING_PATH):
 
-    print('bruh')
+    
+
+    

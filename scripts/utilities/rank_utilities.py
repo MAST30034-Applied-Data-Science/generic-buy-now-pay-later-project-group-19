@@ -37,31 +37,57 @@ def add_column_rank(df: DataFrame, colname: str, ascending: bool = False,
         )
     return df
 
-# min_max_scale
-def min_max_scale(column):
-    #data = [i for i in data if np.isnan(i) == False]
-    if np.max(column) == np.min(column) : return np.ones((len(column), 1)) / 2
-    else : return (column - np.min(column)) / (np.max(column) - np.min(column))
+
+def min_max_scale(column: 'Iterable') -> 'Iterable':
+    """ Perform min-max scaling on a column
+
+    Args:
+        column (`Iterable`): the list/column to perform scaling on
+
+    Returns:
+        `Iterable`: The min-max-scaled list
+    """
+    
+    if np.max(column) == np.min(column) : 
+        return np.ones((len(column), 1)) / 2
+    else : 
+        return (column - np.min(column)) / (np.max(column) - np.min(column))
 
 
 def average_rank(df: DataFrame, colnames: 'list[str]', 
         rank_type: str = 'rank', weights: 'list[float]|None' = None,
         suffix: str = '') -> DataFrame:
+    """ Generate the weighted/unweighted average rank based off of ranking columns.
+
+    Args:
+        df (`DataFrame`): Dataset to rank.
+        colnames (list[str]): Name of columns to rank over.
+        rank_type (str, optional): Type of ranking to perform/look for. Defaults to 'rank'.
+        weights (list[float]|None, optional): weights of the columns. Defaults to None.
+        suffix (str): An optional suffix to add to the new columns.
+
+    Returns:
+        `DataFrame`: Ranked dataset.
+    """
 
     n = len(colnames)
     if weights == None:
         weights = np.ones((1, len(colnames))) / n
 
+    # get the column names to rank over
     rank_colnames = [
         f'{rank_type}_{cn}' for cn in colnames
     ]
 
     if len(suffix) > 0: suffix = '_' + suffix
 
-    # print(np.matrix(df[rank_colnames]).shape)
-    # print(np.matrix(weights).T.shape)
+    # get the linear combination of the rank columns
+    df[f'average_{rank_type}{suffix}'] = np.matrix(df[rank_colnames]) @ np.matrix(weights).T
 
-    df[f'average_rank{suffix}'] = np.matrix(df[rank_colnames]) @ np.matrix(weights).T
+    # get the actual rank as a 1:n integer value
+    df = df.sort_values(f'average_{rank_type}{suffix}').reset_index(drop = False)
+    df.index = 1 + df.index
+    df.index.name=f'average_rank{suffix}'
 
     return df
 
@@ -85,6 +111,7 @@ def bias_weights(all_columns: 'list[str]', bias_columns: 'list[str]',
 
     # apply bias multiplier
     bias_weight = bias_multiplier * current_weight
+
 
     # calculate the new total biased weights
     total_bias_weight = len(bias_columns) * bias_weight

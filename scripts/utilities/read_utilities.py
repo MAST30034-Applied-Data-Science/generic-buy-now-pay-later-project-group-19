@@ -14,6 +14,7 @@ from pyspark.sql.types import IntegerType
 import pandas as pd
 
 from utilities.log_utilities import logger
+from utilities.write_utilities import DEFAULT_OUTPUT_DATA_PATH
 
 DEFAULT_INPUT_DATA_PATH = './data/tables' # where the raw data is
 
@@ -363,3 +364,22 @@ def read_merchant_fraud(spark: SparkSession,
             'fraud_probability', 
             F.col('fraud_probability').cast('float')
         )
+
+    """ Read the merchant statistics data in Pandas
+
+    Args:
+        data_path (str, optional): _description_. Defaults to DEFAULT_INPUT_DATA_PATH.
+    """
+
+def pd_read_merchant_statistics(
+        data_path: str = DEFAULT_OUTPUT_DATA_PATH) -> pd.DataFrame:
+    """ Read the merchant statistics data in Pandas
+
+    Args:
+        data_path (str, optional): Path of the curated data. Defaults to `./data/curated`.
+
+    Returns:
+        `pd.DataFrame`: Output merchant statistics.
+    """
+
+    return pd.read_parquet(f'{data_path}/final_merchant_statistics')

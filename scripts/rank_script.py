@@ -1,15 +1,16 @@
-script_description = """ Generates the fraud probability regression model.
+script_description = """ Generates the merchant rankings.
 """
 
 # Python Libraries
+import os
+import json
 import logging
 import argparse
 from collections import defaultdict
 # ... TODO: Add to this as necessary
 
 # External Libraries
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.ml.regression import LinearRegression as LR
+import pandas as pd
 # ... TODO: Add to this as necessary
 
 # Our Modules
@@ -19,10 +20,11 @@ import utilities.read_utilities as READ
 import utilities.agg_utilities as AGG
 import utilities.model_utilities as MODEL
 import utilities.write_utilities as WRITE
+import utilities.rank_utilities as RANK
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
-DEFAULT_INPUT_DATA_PATH = WRITE.DEFAULT_OUTPUT_PATH # where the raw data is
+DEFAULT_INPUT_DATA_PATH = WRITE.DEFAULT_OUTPUT_DATA_PATH # where the raw data is
 DEFAULT_OUTPUT_RANK_PATH = WRITE.DEFAULT_RANKING_PATH
 # ... TODO: Add to this as necessary
 
@@ -30,7 +32,7 @@ DEFAULT_OUTPUT_RANK_PATH = WRITE.DEFAULT_RANKING_PATH
 # Define the ETL Process
 ################################################################################
 def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH, 
-        rank_path:str = DEFAULT_OUTPUT_RANK_PATH) -> 'defaultdict[str]':
+        rank_path:str = DEFAULT_OUTPUT_RANK_PATH):
     """ TODO: commenting.
 
     Args:
@@ -41,33 +43,146 @@ def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH,
         `LinearRegression`: Output fraud model.
     """
 
-    # read in the datasets
-    PRINT.print_script_header('reading in the raw transactions')
-    
-    merchant_statistics_df = READ.read_merchant_statistics(input_path)
-    logger.info(f'Read {merchant_statistics_df.count()} merchant entries')
-    logger.debug(merchant_statistics_df.head(5))
+    # read in the segments that Oliver defined
+    segments = json.load(open(f'{input_path}/segments.json'))
+    logger.debug(segments)
 
-    segment_df = READ.read_segments(input_path)
-    logger.info(f'Read {consumer_fraud_df.count()} consumer fraud entries')
-    logger.debug(consumer_fraud_df.head(5))
+    # create a mapping df real quick
+    rows = []
 
-    # compute aggregate daily table
-    PRINT.print_script_header('aggregating the transactions by day by merchant')
-    daily_consumer_fraud_df = AGG.compute_known_consumer_fraud(
-        spark, transaction_df, consumer_fraud_df
+    for seg, abn_list in segments.items():
+        if seg == 'repair services': continue
+        for abn in abn_list:
+            rows.append({'segment': seg, 'merchant_abn': abn})
+
+    segments_df = pd.DataFrame(rows)
+    logger.debug(segments_df.head(5))
+
+    # read the curated data
+    merchant_df = READ.pd_read_merchant_statistics(input_path)
+    logger.debug(merchant_df.head(5))
+
+    rank_cols_desc = [
+        # exposure & familiarity features
+        'numd_sa2_code', 'returning_customers', 'unique_customers',
+        # risk of defaulting on payments
+        'median_weekly_income', 
+        # financial performance
+        'commission_avg_tot_dollar_value_monthly', 'avg_num_order_id_monthly',
+        # fraud
+        'avg_discounted_value',
+    ]
+
+    rank_cols_asc = [
+        # financial performance
+        'stddev_tot_dollar_value_monthly',
+        # Fraud
+        'rate_fraud_order', 'stddev_tot_discounted_value_daily',
+    ]
+
+    cols_to_keep = ['merchant_abn', 'name', 'tags', 'tag'] \
+        + rank_cols_desc + rank_cols_asc
+
+    merchant_df = merchant_df[cols_to_keep]
+
+    # define the columns to add ranks for
+    rank_cols_dict = {}
+    for col in rank_cols_desc:
+        rank_cols_dict[col] = False
+    for col in rank_cols_asc:
+        rank_cols_dict[col] = True
+
+    # iterate through and rank these columns
+    for colname, asc in rank_cols_dict.items():
+        merchant_df = RANK.add_column_rank(merchant_df, colname, ascending=asc,
+            rank_type = 'minmax')
+
+    # calculate the uwar for the cols to rank
+    merchant_df = RANK.average_rank(merchant_df, rank_cols_dict.keys(),
+        rank_type = 'minmax')
+
+    # ensure that the path exists
+    if not os.path.exists(rank_path):
+        logger.info(f'`{rank_path}` does not exist. Creating the `ranking_path` directory.')
+        os.mkdir(rank_path)
+
+    merchant_df.to_csv(f'{rank_path}/merchant_rankings.csv')
+
+    # choose the first 100 of these
+    final_100_df = merchant_df.head(100)
+
+    # save the rank, abn, name and sales_revenue in a csv
+    final_100_df.to_csv(f'{rank_path}/top-100-merchants.csv')
+
+    # segment the merchants
+    segmented_merchant_df = merchant_df.join(
+        segments_df.set_index('merchant_abn'),
+        on = 'merchant_abn',
+        how = 'left'
     )
 
-    PRINT.print_script_header('generate the linear regression')
-    fraud_lr = MODEL.generate_fraud_model(daily_consumer_fraud_df)
+    # define the segmented feature names
+    seg_feature_names = {
+        'gifts souvenirs': # revenue
+            [
+                'commission_avg_tot_dollar_value_monthly', 
+                'avg_num_order_id_monthly',
+                'stddev_tot_dollar_value_monthly',
+            ],
+        'home furnishings': # risk
+            [
+                'median_weekly_income', 
+            ],
+        'leisure goods and services': # exposure
+            [
+                'numd_sa2_code', 
+                'returning_customers', 
+                'unique_customers',
+            ],
+        'tech and telecom': # exposure
+            [
+                'numd_sa2_code', 
+                'returning_customers', 
+                'unique_customers',
+            ],
+    }
 
-    logger.info('I will now save the model unless the output path is None.')
-    
-    if model_path is not None:
-        PRINT.print_script_header('saving the rankings')
-        WRITE.write_ranking(fraud_lr, rank_path)
+    # calculate ranks per segment
+    for seg, feature_list in seg_feature_names.items():
+        feature_weights = feature_weights = RANK.bias_weights(
+            rank_cols_dict.keys(),
+            feature_list
+        )
 
-    return fraud_lr
+        segmented_merchant_df = RANK.average_rank(
+            segmented_merchant_df,
+            rank_cols_dict.keys(),
+            'minmax',
+            feature_weights,
+            '_'.join(seg.split(' '))
+        )
+
+    # iterate over segments, print them, and save them
+    for seg in set(segmented_merchant_df['segment']):
+        if type(seg) == float: continue
+        print(f'\nTop 10 {seg} Merchants')
+        print(
+            segmented_merchant_df[
+                segmented_merchant_df['segment'] == seg
+            ].sort_values(
+                f"average_rank_{'_'.join(seg.split(' '))}"
+            ).head(10)[
+                ['merchant_abn', 'name']
+            ]
+        )
+
+        # save top 10 per segment
+        segmented_merchant_df[
+            segmented_merchant_df['segment'] == seg
+        ].sort_values(
+            f"average_rank_{'_'.join(seg.split(' '))}"
+        ).head(10).to_csv(f'{rank_path}/top-10-{seg}.csv')
+
 
 ################################################################################
 # Functionality to only run in script mode
@@ -89,12 +204,12 @@ if __name__ == '__main__':
     # data input folder
     parser.add_argument('-i', '--input', 
         default=DEFAULT_INPUT_DATA_PATH,
-        help='the folder where the data is stored.')
+        help='the folder where the curated data is stored.')
 
     # data output folder
     parser.add_argument('-o', '--output', 
-        default=DEFAULT_OUTPUT_MODEL_PATH,
-        help='the folder where the model is stored. Subdirectories may be created.')
+        default=DEFAULT_OUTPUT_RANK_PATH,
+        help='the folder where the ranks are stored. Subdirectories may be created.')
 
     # Parse arguments as necessary
     args = parser.parse_args()
@@ -113,22 +228,8 @@ if __name__ == '__main__':
     logger.debug(f'arguments: \n{args}')
 
     ############################################################################
-    # Start a spark session
-    ############################################################################
-    PRINT.print_script_header('creating the spark session')
-    spark = (
-        SparkSession.builder.appName("MAST30034 Project 2")
-        .config("spark.sql.repl.eagerEval.enabled", True) 
-        .config("spark.sql.parquet.cacheMetadata", "true")
-        .config("spark.sql.session.timeZone", "Etc/UTC")
-        .config("spark.driver.memory", "4g")
-        .getOrCreate()
-    )
-    spark.sparkContext.setLogLevel('WARN')
-
-    ############################################################################
-    # Run the ETL Process
+    # Run the Script
     ############################################################################
     output = rank_merchants(args.input, args.output)    
 
-    logger.info('Fraud Modelling Complete!')
+    logger.info('Merchant Ranking Complete!')
