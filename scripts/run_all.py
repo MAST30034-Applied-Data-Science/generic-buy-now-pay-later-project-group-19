@@ -25,7 +25,7 @@ import utilities.write_utilities as WRITE
 from utilities.model_utilities import DEFAULT_MODEL_PATH
 from etl_script import etl
 from fraud_modelling_script import model_fraud
-# from rank_script import rank_merchants
+from rank_script import rank_merchants
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
@@ -62,6 +62,8 @@ def run_all(spark: SparkSession, model_path:str = DEFAULT_INPUT_MODEL_PATH,
     etl(spark, model_path, input_path, output_path) 
     
     # run rank script
+    PRINT.print_script_header('running rank merchants')
+    rank_merchants(spark, input_path, rank_path)
     
     return 'SUCCESS'
 
