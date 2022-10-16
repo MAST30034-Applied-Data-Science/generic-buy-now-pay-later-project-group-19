@@ -101,6 +101,8 @@ def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH,
     merchant_df = RANK.average_rank(merchant_df, rank_cols_dict.keys(),
         rank_type = 'minmax')
 
+    logger.debug(merchant_df)
+
     # ensure that the path exists
     if not os.path.exists(rank_path):
         logger.info(f'`{rank_path}` does not exist. Creating the `ranking_path` directory.')
@@ -230,6 +232,6 @@ if __name__ == '__main__':
     ############################################################################
     # Run the Script
     ############################################################################
-    output = rank_merchants(args.input, args.output)    
+    rank_merchants(args.input, args.output)    
 
     logger.info('Merchant Ranking Complete!')

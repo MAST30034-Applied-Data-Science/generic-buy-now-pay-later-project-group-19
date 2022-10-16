@@ -7,7 +7,7 @@ from pandas import DataFrame
 from utilities.log_utilities import logger
 
 def add_column_rank(df: DataFrame, colname: str, ascending: bool = False,
-    rank_type: str = 'rank') -> DataFrame:
+    rank_type: str = 'minmax') -> DataFrame:
     """ Add a new column for the rank of another column in the given df.
     This really exists so the column naming is kept standard.
 
@@ -17,8 +17,7 @@ def add_column_rank(df: DataFrame, colname: str, ascending: bool = False,
         ascending (bool, optional): Whether to sort ascending (lower -> higher). 
             We typically want higher values ranked first.
             Defaults to False.
-        pct (bool, optional): Whether to calculate a percentile value instead of an integer rank. 
-            Defaults to False.
+        rank_type (str): The type of ranking to perform. Defaults to 'minimax'.
     Returns:
         `DataFrame`: The modified Pandas `DataFrame` containing the new rank column
     """
@@ -55,14 +54,14 @@ def min_max_scale(column: 'Iterable') -> 'Iterable':
 
 
 def average_rank(df: DataFrame, colnames: 'list[str]', 
-        rank_type: str = 'rank', weights: 'list[float]|None' = None,
+        rank_type: str = 'minmax', weights: 'list[float]|None' = None,
         suffix: str = '') -> DataFrame:
     """ Generate the weighted/unweighted average rank based off of ranking columns.
 
     Args:
         df (`DataFrame`): Dataset to rank.
         colnames (list[str]): Name of columns to rank over.
-        rank_type (str, optional): Type of ranking to perform/look for. Defaults to 'rank'.
+        rank_type (str, optional): Type of ranking to perform/look for. Defaults to 'minmax'.
         weights (list[float]|None, optional): weights of the columns. Defaults to None.
         suffix (str): An optional suffix to add to the new columns.
 
