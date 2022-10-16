@@ -22,7 +22,7 @@ Build a robust and flexible ETL pipeline which automatically processes merchant 
     ```
     pip3 install -r requirements.txt
     ```
-3. When done, run the following command which runs through all the steps necessary to generate rankings in the `./ranking` folder:
+3. When done, run the following command which runs through all the steps necessary to generate rankings in the `./ranking` folder (**May take up to 15 minutes to run depending on device**):
     ```
     python3 ./scripts/run_all.py
     ```
