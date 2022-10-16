@@ -19,7 +19,7 @@ We have built a robost ETL pipeline which automatically process the data and gen
     ```
     pip install -r requirements.txt
     ```
-3. When done, run the following command:
+3. When done, run the following command which :
     ```
     python3 ./scripts/run_all.py
     ```
@@ -33,6 +33,11 @@ python3 ./scripts/fraud_modelling_script.py
 ```
 
 To run the ETL pipeline only without re-running the entire scripts:
+```
+python3 ./scripts/etl_script.py
+```
+
+To run the ranking only without re-running the entire scripts:
 ```
 python3 ./scripts/etl_script.py
 ```
