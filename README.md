@@ -59,7 +59,7 @@ The jupyter notebooks are under `notebook` folder.
 
 `deprecated research and methods` folder contains methods that the team has researched and experimented. These methods were not implemented in the final pipeline. 
 
-The `Project Summary Notebook.ipynb` details the various processes, challenges and findings we had in the development process. For optimal reading experience, please view the notebook via jupyter notebook.
+The `Project Summary Notebook.ipynb` details the various processes, challenges and findings we had in the development process. For optimal reading experience, please view the notebook via jupyter notebook, instead of vscode or other ide.
 
 
 # External Datasets
