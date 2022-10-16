@@ -262,6 +262,6 @@ if __name__ == '__main__':
     )
     spark.sparkContext.setLogLevel('WARN')
     
-    rank_merchants(args.input, args.output)    
+    rank_merchants(spark, args.input, args.output)    
 
     logger.info('Merchant Ranking Complete!')
