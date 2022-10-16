@@ -35,7 +35,7 @@ DEFAULT_OUTPUT_RANK_PATH = WRITE.DEFAULT_RANKING_PATH
 ################################################################################
 def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH, 
         rank_path:str = DEFAULT_OUTPUT_RANK_PATH):
-    """ TODO: commenting.
+    """ Perform merchant ranking :P
 
     Args:
         input_path (str): Path where the curated data is stored.
@@ -47,7 +47,8 @@ def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH,
 
     # read in the segments that Oliver defined
     merchants_with_tags = spark.read.parquet(f"{input_path}/merchants_with_tags")
-    merchants_with_segments = SEGMENT.transform_segment(merchants_with_tags)
+    merchants_with_segments = SEGMENT.transform_segment(
+        merchants_with_tags, rank_path)
     segments = SEGMENT.get_segments_abn(merchants_with_segments)
     logger.debug(segments)
 

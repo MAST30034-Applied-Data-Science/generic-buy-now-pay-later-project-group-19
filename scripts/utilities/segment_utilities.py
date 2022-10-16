@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import json
 
-DEFAULT_SEGMENT_JSON_PATH = './data/curated' # where the json file is
+DEFAULT_SEGMENT_JSON_PATH = './ranking' # where the json file is
 
 # TODO: function to segment merchants tags
 
@@ -58,16 +58,19 @@ def get_tag(row, tag_df) -> list:
     return tag_list
 
 
-def transform_segment(merchants_with_tags: DataFrame) -> DataFrame:
+def transform_segment(merchants_with_tags: DataFrame,
+        json_path: str = DEFAULT_SEGMENT_JSON_PATH) -> DataFrame:
     """ Take the merchants with tags dataframe and transform it into merchants
     with segments dataframe
     Args:
         merchants_with_tags ('DataFrame'): the merchants with tags dataframe
+        json_path ('str'): directory path of the segment json file
+    
     Returns:
         DataFrame: the merchants with segment dataframe
     """  
     merchants_with_tags = merchants_with_tags.toPandas()
-    segment_tags = read_segment_json()
+    segment_tags = read_segment_json(json_path)
     labelling = reverse_dict(segment_tags)
     
     remove_col = ['name','merchant_abn','take_rate','revenue_level']
