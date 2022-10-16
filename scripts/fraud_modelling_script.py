@@ -127,7 +127,7 @@ if __name__ == '__main__':
     spark.sparkContext.setLogLevel('WARN')
 
     ############################################################################
-    # Run the ETL Process
+    # Run the Script
     ############################################################################
     output = model_fraud(spark, args.input, args.output)    
 

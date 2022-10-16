@@ -15,6 +15,7 @@ from utilities.log_utilities import logger
 from utilities.model_utilities import DEFAULT_MODEL_PATH
 
 DEFAULT_OUTPUT_DATA_PATH = './data/curated' # where the curated data will be stored
+DEFAULT_RANKING_PATH = './ranking'
 DONT_SAVE_PREFIX = 'DONT-SAVE-'
 
 def write_data(data_dict: 'defaultdict[str]', 
@@ -52,6 +53,7 @@ def write_data(data_dict: 'defaultdict[str]',
                 'you\'ve given me a file format I don\'t know how to save.'
                 + ' Given type: ' + str(type(data)))
 
+
 def write_model(model: LR, model_path: str = DEFAULT_MODEL_PATH,
         model_name: str = 'fraud_regression'):
     """ Save a linear regression.
@@ -64,3 +66,10 @@ def write_model(model: LR, model_path: str = DEFAULT_MODEL_PATH,
 
     save_path = f'{model_path}/{model_name}'
     model.write().overwrite().save(save_path)
+    
+
+
+
+    
+
+    
