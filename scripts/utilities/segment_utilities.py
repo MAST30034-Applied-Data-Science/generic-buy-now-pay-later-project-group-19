@@ -105,7 +105,7 @@ def get_segments_abn(merchants_with_segments: DataFrame) -> dict:
     
     segment_dict = {col:[] for col in merchants_with_segments.columns if col != 'merchant_abn'}
     
-    for segment in segment_dict.keys():
+    for segment in ['leisure goods and services','home furnishings','gifts souvenirs','tech and telecom']:
         segment_abn = merchants_with_segments[merchants_with_segments[segment] != 0]['merchant_abn'].unique()
         segment_dict[segment] += segment_abn.tolist()
         
