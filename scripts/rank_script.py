@@ -101,6 +101,13 @@ def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH,
     merchant_df = RANK.average_rank(merchant_df, rank_cols_dict.keys(),
         rank_type = 'minmax')
 
+    # get the actual rank as a 1:n integer value
+    merchant_df = merchant_df \
+        .sort_values(f'average_minmax') \
+        .reset_index(drop = False)
+    merchant_df.index = 1 + merchant_df.index
+    merchant_df.index.name=f'overall_rank'
+
     logger.debug(merchant_df)
 
     # ensure that the path exists
@@ -172,18 +179,25 @@ def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH,
             segmented_merchant_df[
                 segmented_merchant_df['segment'] == seg
             ].sort_values(
-                f"average_rank_{'_'.join(seg.split(' '))}"
+                f"average_minmax_{'_'.join(seg.split(' '))}"
             ).head(10)[
                 ['merchant_abn', 'name']
             ]
         )
 
         # save top 10 per segment
-        segmented_merchant_df[
+        top10_seg_df = segmented_merchant_df[
             segmented_merchant_df['segment'] == seg
         ].sort_values(
-            f"average_rank_{'_'.join(seg.split(' '))}"
-        ).head(10).to_csv(f'{rank_path}/top-10-{seg}.csv')
+            f"average_minmax_{'_'.join(seg.split(' '))}"
+        ).head(10)
+
+        # get the actual rank as a 1:n integer value
+        top10_seg_df = top10_seg_df.reset_index(drop = False)
+        top10_seg_df.index = 1 + top10_seg_df.index
+        top10_seg_df.index.name=f"rank_{'_'.join(seg.split(' '))}"
+        
+        top10_seg_df.to_csv(f'{rank_path}/top-10-{seg}.csv')
 
 
 ################################################################################

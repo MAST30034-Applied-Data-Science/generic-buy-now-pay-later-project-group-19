@@ -83,11 +83,6 @@ def average_rank(df: DataFrame, colnames: 'list[str]',
     # get the linear combination of the rank columns
     df[f'average_{rank_type}{suffix}'] = np.matrix(df[rank_colnames]) @ np.matrix(weights).T
 
-    # get the actual rank as a 1:n integer value
-    df = df.sort_values(f'average_{rank_type}{suffix}').reset_index(drop = False)
-    df.index = 1 + df.index
-    df.index.name=f'average_rank{suffix}'
-
     return df
 
 
