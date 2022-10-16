@@ -12,16 +12,32 @@
 # Project Objectives
 We have built a robost ETL pipeline which automatically process the data and generate a ranked list of merchants to consider doing business with.
 
-## Scripts
+# Setup
+
+1. Open up your terminal or command prompt and cd to the root directory of the project folder.
+2. Run the following command to install all required python packages (**May take a while to install**):
+    ```
+    pip install -r requirements.txt
+    ```
+3. When done, run the following command:
+    ```
+    python3 ./scripts/run_all.py
+    ```
+
+# Scripts
 The python scripts are stored under the `scripts` folder.
 
-Retrain the model:
-`python3 ./scripts/fraud_modelling_script.py`
+To retrain the model without re-running the entire scripts:
+```
+python3 ./scripts/fraud_modelling_script.py
+```
 
-Run the ETL pipeline:
-`python3 ./scripts/etl_script.py`
+To run the ETL pipeline only without re-running the entire scripts:
+```
+python3 ./scripts/etl_script.py
+```
 
-The ETL script can be run with arguments(optional):
+The ETL script can be run with arguments (optional):
 
 - `'-d', '--debug', '--debugging'`: print the debug statements
 - `'-i', '--input'`: specify where the input data will be stored
@@ -29,40 +45,44 @@ The ETL script can be run with arguments(optional):
 - `'-o', '--output'`: specify where the ranking results will be stored
 
 
-## Notebooks
+# Notebooks
 The jupyter notebooks are under `notebook` folder.
 
-`deprecated research and methods` folder contains experimental methods that the team has researched and experimented. These methods were not implemented in the pipeline. 
+`deprecated research and methods` folder contains methods that the team has researched and experimented. These methods were not implemented in the final pipeline. 
 
-`Project Summary Notebook.ipynb` jupyter notebook is a thorough walk through of the challenges and findings we had in the development process.
+`Project Summary Notebook.ipynb` jupyter notebook details the various processes, challenges and findings we had in the development process.
 
-## External Datasets
+
+# External Datasets
 External datasets are under `data/tables`. 
 
 The ABS (Australian Bureau of Statistics) datasets are small and are originally downloaded in `.zip` format from the website. Hence instead of automating the process of downloading the data, we manually download the dataset, unzip it and store them under `data/tables`.
 
 There are mainly three external dataset that we used:
 
-`data/tables/POA` : 2021 demographic data by Australian postal areas
-`data/tables/SA2` : 2021 demographic data by Australian SA2 areas
+- `data/tables/POA` : 2021 demographic data by Australian postal areas
 
-The download link for these two dataset is `https://www.abs.gov.au/census/find-census-data/datapacks`
+- `data/tables/SA2` : 2021 demographic data by Australian SA2 areas
 
-In addition, an external mapping file is automatically downloaded from the internet to map the postal area to SA2 areas.
+These two dataset can be downloaded [here](https://www.abs.gov.au/census/find-census-data/datapacks).
 
-The download link is `https://www.matthewproctor.com/Content/postcodes/australian_postcodes.csv`
+In addition, an external mapping file is **automatically downloaded** from the internet to map the postal area to SA2 areas.
 
-## Curated Data and Outputs
+The dataset can be downloaded externally [here](https://www.matthewproctor.com/Content/postcodes/australian_postcodes.csv) for reference and the data dictionary [here](https://www.matthewproctor.com/australian_postcodes).
 
-The curated data are stored in `data/curated`
+# Curated Data and Outputs
+
+The curated data are stored in `data/curated`.
+
 The final rankings are stored in `model` by default. 
 
 
-## Model
+# Model
+
 The model used for this project is stored in the `model` folder.
 To retrain the model, please reference to the command in `scripts` session
 
-## Used Python Libraries
+# Used Python Libraries
 
 See `requirements.txt` under the root folder.
 
