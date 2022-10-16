@@ -46,7 +46,7 @@ Run any of the scripts below with the `-h` argument to show a help message descr
 
 3. To run the **ranking**:
     ```
-    python3 ./scripts/etl_script.py
+    python3 ./scripts/rank_script.py
     ```
 
 ### *Alternatively,* to run all of the above scripts in one go:
