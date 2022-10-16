@@ -81,7 +81,7 @@ def average_rank(df: DataFrame, colnames: 'list[str]',
     if len(suffix) > 0: suffix = '_' + suffix
 
     # get the linear combination of the rank columns
-    df[f'average_{rank_type}{suffix}'] = np.matrix(df[rank_colnames]) @ np.matrix(weights).T
+    df[f'average_{rank_type}{suffix}'] = np.array(np.matrix(df[rank_colnames]) @ np.matrix(weights).T)
 
     return df
 

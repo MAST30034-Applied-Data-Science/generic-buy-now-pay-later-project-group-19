@@ -11,6 +11,7 @@ from collections import defaultdict
 
 # External Libraries
 import pandas as pd
+from pyspark.sql import SparkSession, DataFrame
 # ... TODO: Add to this as necessary
 
 # Our Modules
@@ -21,6 +22,7 @@ import utilities.agg_utilities as AGG
 import utilities.model_utilities as MODEL
 import utilities.write_utilities as WRITE
 import utilities.rank_utilities as RANK
+import utilities.segment_utilities as SEGMENT
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
@@ -44,7 +46,9 @@ def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH,
     """
 
     # read in the segments that Oliver defined
-    segments = json.load(open(f'{input_path}/segments.json'))
+    merchants_with_tags = spark.read.parquet(f"{input_path}/merchants_with_tags")
+    merchants_with_segments = SEGMENT.transform_segment(merchants_with_tags)
+    segments = SEGMENT.get_segments_abn(merchants_with_segments)
     logger.debug(segments)
 
     # create a mapping df real quick
@@ -246,6 +250,17 @@ if __name__ == '__main__':
     ############################################################################
     # Run the Script
     ############################################################################
+    PRINT.print_script_header('creating the spark session')
+    spark = (
+        SparkSession.builder.appName("MAST30034 Project 2")
+        .config("spark.sql.repl.eagerEval.enabled", True) 
+        .config("spark.sql.parquet.cacheMetadata", "true")
+        .config("spark.sql.session.timeZone", "Etc/UTC")
+        .config("spark.driver.memory", "4g")
+        .getOrCreate()
+    )
+    spark.sparkContext.setLogLevel('WARN')
+    
     rank_merchants(args.input, args.output)    
 
     logger.info('Merchant Ranking Complete!')
