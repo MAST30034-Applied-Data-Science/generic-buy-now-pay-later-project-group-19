@@ -25,13 +25,14 @@ import utilities.write_utilities as WRITE
 from utilities.model_utilities import DEFAULT_MODEL_PATH
 from etl_script import etl
 from fraud_modelling_script import model_fraud
-from rank_script import rank_merchants
+from rank_script import rank_merchants, DEFAULT_OUTPUT_RANK_PATH
 # ... TODO: Add to this as necessary
 
 # Constants (these will modify the behavior of the script)
 DEFAULT_INPUT_DATA_PATH = READ.DEFAULT_INPUT_DATA_PATH # where the raw data is
 DEFAULT_OUTPUT_DATA_PATH = WRITE.DEFAULT_OUTPUT_DATA_PATH # where the curated data is
 DEFAULT_INPUT_MODEL_PATH = DEFAULT_MODEL_PATH
+DEFAULT_RANKING_PATH = WRITE.DEFAULT_RANKING_PATH
 # ... TODO: Add to this as necessary
 
 ################################################################################
@@ -39,7 +40,8 @@ DEFAULT_INPUT_MODEL_PATH = DEFAULT_MODEL_PATH
 ################################################################################
 def run_all(spark: SparkSession, model_path:str = DEFAULT_INPUT_MODEL_PATH, 
         input_path:str = DEFAULT_INPUT_DATA_PATH, 
-        output_path:str = DEFAULT_INPUT_MODEL_PATH
+        output_path:str = DEFAULT_OUTPUT_DATA_PATH,
+        rank_path: str = DEFAULT_RANKING_PATH
         ) -> 'defaultdict[str, DataFrame|None]':
     """ The whole etl process in one script.
 
@@ -63,7 +65,7 @@ def run_all(spark: SparkSession, model_path:str = DEFAULT_INPUT_MODEL_PATH,
     
     # run rank script
     PRINT.print_script_header('running rank merchants')
-    rank_merchants(spark, input_path, rank_path)
+    rank_merchants(spark, output_path, rank_path)
     
     return 'SUCCESS'
 
@@ -93,6 +95,11 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--model', 
         default=DEFAULT_INPUT_MODEL_PATH,
         help='the folder where the model is stored.')
+
+    # rank folder
+    parser.add_argument('-r', '--rank', 
+        default=DEFAULT_OUTPUT_RANK_PATH,
+        help='the folder where the ranks are stored. Subdirectories may be created.')
 
     # data output folder
     parser.add_argument('-o', '--output', 
@@ -133,6 +140,6 @@ if __name__ == '__main__':
     ############################################################################
     # Run the entire project pipeline in one go
     ############################################################################
-    output = run_all(spark, args.model, args.input, args.output)    
+    output = run_all(spark, args.model, args.input, args.output, args.rank)    
 
     logger.info('Run All Scripts Successfully!')

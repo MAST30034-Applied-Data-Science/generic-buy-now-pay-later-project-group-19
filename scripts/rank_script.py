@@ -33,16 +33,16 @@ DEFAULT_OUTPUT_RANK_PATH = WRITE.DEFAULT_RANKING_PATH
 ################################################################################
 # Define the ETL Process
 ################################################################################
-def rank_merchants(input_path:str = DEFAULT_INPUT_DATA_PATH, 
+def rank_merchants(spark: SparkSession, input_path:str = DEFAULT_INPUT_DATA_PATH, 
         rank_path:str = DEFAULT_OUTPUT_RANK_PATH):
     """ Perform merchant ranking :P
 
     Args:
+        spark (`SparkSession`): Spark session processing the data.
         input_path (str): Path where the curated data is stored.
         rank_path (str): Path where resulting rankings will be saved.
 
-    Returns:
-        `LinearRegression`: Output fraud model.
+    Returns: Nothing.
     """
 
     # read in the segments that Oliver defined
