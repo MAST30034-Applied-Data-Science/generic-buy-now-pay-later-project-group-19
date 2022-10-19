@@ -13,7 +13,7 @@ Ming Hui Tan | 1087948
 Ke He | 1068040
 
 # Project Objectives
-Build a robust and flexible ETL pipeline which automatically processes merchant and transaction data and generates a ranked list of merchants to consider doing business with.
+Build a robust and flexible ETL pipeline which automatically processes merchant and transaction data and generates a ranked list of merchants to partner up with.
 
 # Setup
 
@@ -57,9 +57,11 @@ python3 ./scripts/run_all.py
 # Notebooks
 The jupyter notebooks are under `notebook` folder.
 
+The `Project Summary Notebook.ipynb` details the various processes, challenges and findings we had in the development process. For optimal reading experience, please view the notebook via jupyter notebook, instead of vscode or other ide.
+
 `deprecated research and methods` folder contains methods that the team has researched and experimented. These methods were not implemented in the final pipeline. 
 
-The `Project Summary Notebook.ipynb` details the various processes, challenges and findings we had in the development process. For optimal reading experience, please view the notebook via jupyter notebook, instead of vscode or other ide.
+`project development notebooks` folder contains various notebooks that serve as a ground to test and develop our codes before implementing them into a script.
 
 
 # External Datasets
@@ -91,9 +93,9 @@ The final rankings are stored in the `./ranking` by default.
 
 # Model
 
-The model used for this project is stored in the `model` folder.
+The fraud rate prediction model used for this project is stored in the `model` folder.
 This is a simple OLS linear regression.
-To train/retrain the model, please see the `scripts` session
+To train/retrain the model, please see the `scripts` session.
 
 # Used Python Libraries
 
