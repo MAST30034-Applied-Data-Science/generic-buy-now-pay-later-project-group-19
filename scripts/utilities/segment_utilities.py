@@ -98,7 +98,7 @@ def transform_segment(merchants_with_tags: DataFrame,
                      axis=1)
 
 
-def get_segments_abn(merchants_with_segments: DataFrame) -> dict:
+def get_segments_abn(merchants_with_segments: DataFrame, final_segment: bool = True) -> dict:
     """ Return all abns associated with each segment in dictionary format
     Args:
         merchants_with_segments ('DataFrame'): the merchants with segments dataframe
@@ -108,7 +108,12 @@ def get_segments_abn(merchants_with_segments: DataFrame) -> dict:
     
     segment_dict = {col:[] for col in merchants_with_segments.columns if col != 'merchant_abn'}
     
-    for segment in ['leisure goods and services','home furnishings','gifts souvenirs','tech and telecom']:
+    if final_segment is True:
+        segment_list = ['leisure goods and services','home furnishings','gifts souvenirs','tech and telecom']
+    else:
+        segment_list = [segment for segment in merchants_with_segments.columns if segment != 'merchant_abn']
+        
+    for segment in segment_list:
         segment_abn = merchants_with_segments[merchants_with_segments[segment] != 0]['merchant_abn'].unique()
         segment_dict[segment] += segment_abn.tolist()
         
