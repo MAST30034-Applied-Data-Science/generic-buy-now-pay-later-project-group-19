@@ -13,7 +13,7 @@ Ming Hui Tan | 1087948
 Ke He | 1068040
 
 # Project Objectives
-Build a robust and flexible ETL pipeline which automatically processes merchant and transaction data and generates a ranked list of merchants to consider doing business with.
+Build a robust and flexible ETL pipeline which automatically processes merchant and transaction data and generates a ranked list of merchants to partner up with.
 
 # Setup
 
@@ -95,7 +95,7 @@ The final rankings are stored in the `./ranking` by default.
 
 The fraud rate prediction model used for this project is stored in the `model` folder.
 This is a simple OLS linear regression.
-To train/retrain the model, please see the `scripts` session
+To train/retrain the model, please see the `scripts` session.
 
 # Used Python Libraries
 
