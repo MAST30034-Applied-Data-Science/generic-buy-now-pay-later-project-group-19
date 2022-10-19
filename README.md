@@ -75,7 +75,7 @@ There are three external dataset used:
 
 - `data/tables/SA2` : 2021 demographic data by Australian SA2 areas
 
-These two datasets can be downloaded [here](https://www.abs.gov.au/census/find-census-data/datapacks).
+These two datasets can be downloaded [here](https://www.abs.gov.au/census/find-census-data/datapacks/download/2021_GCP_all_for_AUS_short-header.zip).
 
 In addition, an external mapping file is **automatically downloaded** from the internet to map the postal area to SA2 areas.
 
